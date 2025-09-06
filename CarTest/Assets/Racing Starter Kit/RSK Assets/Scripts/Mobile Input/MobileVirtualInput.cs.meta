@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0f57aeb1b8dce3342bea5c28ac17db24
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 169750
+  packageName: Racing Starter Kit
+  packageVersion: 1.1.5
+  assetPath: Assets/Racing Starter Kit/Assets/MainAssets/CrossPlatformInput/Scripts/VirtualInput.cs
+  uploadId: 517465

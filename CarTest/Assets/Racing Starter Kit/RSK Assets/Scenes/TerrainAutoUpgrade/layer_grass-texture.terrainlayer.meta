@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 66cfc0c4541a5d543b21a3aa9ee98388
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 8574412962073106934
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 169750
+  packageName: Racing Starter Kit
+  packageVersion: 1.1.5
+  assetPath: Assets/Racing Starter Kit/Scenes/_TerrainAutoUpgrade/layer_grass-texture(15.000,15.000)(0.000,0.000)(0.000,0.000,0.000),0.630,0.000.terrainlayer
+  uploadId: 517465

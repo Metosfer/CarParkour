@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4e2a18fdb7d20fa40bafb75ae73783d7
+timeCreated: 1467983760
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 169750
+  packageName: Racing Starter Kit
+  packageVersion: 1.1.5
+  assetPath: Assets/Racing Starter Kit/Assets/Materials/Physics/Car.physicMaterial
+  uploadId: 517465

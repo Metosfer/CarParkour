@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 50ed4048425ec564283fd4f646cffd44
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 274208
+  packageName: Squad Shooter | Template + Editor
+  packageVersion: v1.3.1
+  assetPath: Assets/Project Files/Data/Pipeline/URP Global Settings.asset
+  uploadId: 718162

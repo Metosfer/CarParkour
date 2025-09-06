@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 92c29357dd674784ba15e35b940ec66d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 169750
+  packageName: Racing Starter Kit
+  packageVersion: 1.1.5
+  assetPath: Assets/Racing Starter Kit/Assets/Materials/CarColorAI.mat
+  uploadId: 517465

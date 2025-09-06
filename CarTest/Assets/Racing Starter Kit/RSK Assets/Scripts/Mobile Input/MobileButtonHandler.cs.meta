@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 85bf3be603548374ca46f521a3aa7fda
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 169750
+  packageName: Racing Starter Kit
+  packageVersion: 1.1.5
+  assetPath: Assets/Racing Starter Kit/Assets/MainAssets/CrossPlatformInput/Scripts/ButtonHandler.cs
+  uploadId: 517465

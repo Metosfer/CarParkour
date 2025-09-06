@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fffafd711dc1dbc478a49705cfe1ce3d
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 169750
+  packageName: Racing Starter Kit
+  packageVersion: 1.1.5
+  assetPath: Assets/Racing Starter Kit/Assets/MainAssets/Vehicles/Car/Scripts/BrakeLight.cs
+  uploadId: 517465
