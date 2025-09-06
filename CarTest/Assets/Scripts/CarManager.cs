@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using Photon.Pun;
 
-public class CarManager : MonoBehaviour
+public class CarManager : MonoBehaviourPun, IPunObservable
 {
     private enum ArcadeAccelMode { Torque, ForceBoost, VelocitySnap }
 
@@ -220,6 +221,31 @@ public class CarManager : MonoBehaviour
     private float desiredTargetSpeedKmh; // base veya base+nitro
     private bool nitroActive;
 
+    [Header("Co-op (Photon PUN 2)")]
+    [Tooltip("Co-op kontrolünü (her oyuncu bir ön teker) etkinleştirir.")]
+    [SerializeField] private bool enableCoopNetwork = true;
+    [Tooltip("Master (Kurucu) sağ ön tekeri kontrol eder. Kapalıysa sol ön tekeri kontrol eder.")]
+    [SerializeField] private bool masterControlsRight = true;
+    [Tooltip("Ağ paketlerinin gönderimi için açı değişim eşiği (derece).")]
+    [SerializeField] private float netSendMinDelta = 1f;
+    [Tooltip("Açı gönderimleri arası minimum süre (sn).")]
+    [SerializeField] private float netSendInterval = 0.05f;
+
+    private enum CoopRole { Left, Right }
+    private CoopRole localRole = CoopRole.Left;
+    private float remoteTargetFL = 0f;
+    private float remoteTargetFR = 0f;
+    private float lastSentAngle = 0f;
+    private float lastSendTime = -999f;
+
+    // Basit state sync
+    private Vector3 netPos;
+    private Quaternion netRot;
+    private Vector3 netVel;
+
+    private bool IsNetworked => enableCoopNetwork && PhotonNetwork.IsConnected;
+    private bool IsAuthority => !IsNetworked || PhotonNetwork.IsMasterClient;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
@@ -247,17 +273,57 @@ public class CarManager : MonoBehaviour
 
     private void Update()
     {
-    // Read desired steer for each front wheel from inputs
-    float speedKmhNow = rb ? rb.velocity.magnitude * 3.6f : 0f;
-    float effectiveMaxSteer = GetEffectiveMaxSteer(speedKmhNow);
-    if (arcadeSteering) effectiveMaxSteer *= arcadeSteerBoost;
-        float targetFR = 0f; // Right front controlled by Arrow Left/Right
-    if (Input.GetKey(KeyCode.RightArrow)) targetFR = +effectiveMaxSteer;
-    else if (Input.GetKey(KeyCode.LeftArrow)) targetFR = -effectiveMaxSteer;
+        // Rolü belirle (ağlı isek)
+        DetermineLocalRole();
 
-        float targetFL = 0f; // Left front controlled by A/D
-    if (Input.GetKey(KeyCode.D)) targetFL = +effectiveMaxSteer;
-    else if (Input.GetKey(KeyCode.A)) targetFL = -effectiveMaxSteer;
+        // Read desired steer for each front wheel from inputs
+        float speedKmhNow = rb ? rb.velocity.magnitude * 3.6f : 0f;
+        float effectiveMaxSteer = GetEffectiveMaxSteer(speedKmhNow);
+        if (arcadeSteering) effectiveMaxSteer *= arcadeSteerBoost;
+
+        float targetFR = 0f;
+        float targetFL = 0f;
+
+        if (!IsNetworked)
+        {
+            // Tek oyuncu: iki teker de yerel
+            if (Input.GetKey(KeyCode.RightArrow)) targetFR = +effectiveMaxSteer;
+            else if (Input.GetKey(KeyCode.LeftArrow)) targetFR = -effectiveMaxSteer;
+
+            if (Input.GetKey(KeyCode.D)) targetFL = +effectiveMaxSteer;
+            else if (Input.GetKey(KeyCode.A)) targetFL = -effectiveMaxSteer;
+        }
+        else
+        {
+            if (localRole == CoopRole.Right)
+            {
+                if (Input.GetKey(KeyCode.RightArrow)) targetFR = +effectiveMaxSteer;
+                else if (Input.GetKey(KeyCode.LeftArrow)) targetFR = -effectiveMaxSteer;
+                targetFL = remoteTargetFL;
+            }
+            else // Left
+            {
+                if (Input.GetKey(KeyCode.D)) targetFL = +effectiveMaxSteer;
+                else if (Input.GetKey(KeyCode.A)) targetFL = -effectiveMaxSteer;
+                targetFR = remoteTargetFR;
+            }
+
+            // Otorite değilsek kendi teker açımızı Master'a yolla
+            if (!IsAuthority)
+            {
+                float toSend = (localRole == CoopRole.Right) ? targetFR : targetFL;
+                bool timeOk = (Time.time - lastSendTime) >= netSendInterval;
+                if (timeOk && Mathf.Abs(toSend - lastSentAngle) >= netSendMinDelta)
+                {
+                    if (localRole == CoopRole.Right)
+                        photonView.RPC("RPC_SetFR", RpcTarget.MasterClient, toSend, PhotonNetwork.LocalPlayer.ActorNumber);
+                    else
+                        photonView.RPC("RPC_SetFL", RpcTarget.MasterClient, toSend, PhotonNetwork.LocalPlayer.ActorNumber);
+                    lastSentAngle = toSend;
+                    lastSendTime = Time.time;
+                }
+            }
+        }
 
     // Smooth towards targets (arcade ise çok daha hızlı yaklaş)
     float steerRate = arcadeSteering ? arcadeSteerSnapSpeed : steerSlewRate;
@@ -298,6 +364,11 @@ public class CarManager : MonoBehaviour
 
     private void FixedUpdate()
     {
+        // Ağda değilse veya Master isek fizik çalıştır
+        if (!IsAuthority)
+        {
+            return;
+        }
         // Convert target speed to m/s
     float targetSpeed = Mathf.Max(0f, currentTargetSpeedKmh) * (1000f / 3600f);
         float speed = rb ? rb.velocity.magnitude : 0f;
@@ -543,6 +614,58 @@ public class CarManager : MonoBehaviour
             Vector3 localAV = transform.InverseTransformDirection(rb.angularVelocity);
             float rollVel = localAV.z;
             rb.AddRelativeTorque(new Vector3(0f, 0f, -rollVel) * rollDamping, ForceMode.Acceleration);
+        }
+    }
+
+    private void DetermineLocalRole()
+    {
+        if (!IsNetworked) return;
+        bool master = PhotonNetwork.IsMasterClient;
+        bool right = masterControlsRight ? master : !master;
+        localRole = right ? CoopRole.Right : CoopRole.Left;
+    }
+
+    [PunRPC]
+    private void RPC_SetFL(float angleDeg, int actorNumber)
+    {
+        if (!PhotonNetwork.IsMasterClient) return;
+        float cap = maxSteerAngle * (arcadeSteering ? arcadeSteerBoost : 1f);
+        remoteTargetFL = Mathf.Clamp(angleDeg, -cap, cap);
+    }
+
+    [PunRPC]
+    private void RPC_SetFR(float angleDeg, int actorNumber)
+    {
+        if (!PhotonNetwork.IsMasterClient) return;
+        float cap = maxSteerAngle * (arcadeSteering ? arcadeSteerBoost : 1f);
+        remoteTargetFR = Mathf.Clamp(angleDeg, -cap, cap);
+    }
+
+    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+    {
+        if (!enableCoopNetwork) return;
+        if (stream.IsWriting && IsAuthority)
+        {
+            stream.SendNext(transform.position);
+            stream.SendNext(transform.rotation);
+            stream.SendNext(rb ? rb.velocity : Vector3.zero);
+            stream.SendNext(steerAngleFL);
+            stream.SendNext(steerAngleFR);
+        }
+        else if (stream.IsReading && !IsAuthority)
+        {
+            netPos = (Vector3)stream.ReceiveNext();
+            netRot = (Quaternion)stream.ReceiveNext();
+            netVel = (Vector3)stream.ReceiveNext();
+            steerAngleFL = (float)stream.ReceiveNext();
+            steerAngleFR = (float)stream.ReceiveNext();
+
+            transform.position = netPos;
+            transform.rotation = netRot;
+            if (rb) rb.velocity = netVel;
+
+            if (frontRightCollider) frontRightCollider.steerAngle = steerAngleFR;
+            if (frontLeftCollider) frontLeftCollider.steerAngle = steerAngleFL;
         }
     }
 

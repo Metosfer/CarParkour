@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Racing Starter Kit/RSK Assets/Scenes/SampleScene.unity
-    guid: adc28652a668a9646b0352d63f41b808
+    path: Assets/Scenes/Lobby.unity
+    guid: fc3f9f9e57f824f37b5b267bd7a7b1da
+  - enabled: 1
+    path: Assets/Scenes/GameScene.unity
+    guid: c18b870a1087e46c7ad0f0b247d97e44
   m_configObjects: {}
