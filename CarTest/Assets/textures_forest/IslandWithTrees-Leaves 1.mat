@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: IslandWithTrees-Leaves 1
+  m_Shader: {fileID: 4800000, guid: bee44b4a58655ee4cbff107302a3e131, type: 3}
+  m_Parent: {fileID: 2100000, guid: 1f940e1b490743b40a948882bbea34db, type: 2}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - DR_CEL_EXTRA_ON
+  - DR_SPECULAR_ON
+  - _TEXTUREBLENDINGMODE_MULTIPLY
+  m_InvalidKeywords:
+  - _CELPRIMARYMODE_NONE
+  - _FLAT_SHADOWS_ENABLED
+  - _FLAT_SPECULAR_ENABLED
+  - _UNITYSHADOWMODE_NONE
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs: []
+    m_Ints: []
+    m_Floats:
+    - _CelExtraEnabled: 1
+    - _CelPrimaryEnabled: 0
+    - _FlatRimEdgeSmoothness: 0.5
+    - _FlatRimSize: 0.1
+    - _FlatSpecularEdgeSmoothness: 0.37
+    - _FlatSpecularSize: 0.543
+    - _Flatness: 0.301
+    - _FlatnessExtra: 0.594
+    - _GradientAngle: 180
+    - _GradientEnabled: 0
+    - _GradientSize: 9.51
+    - _SelfShadingSize: 0
+    - _SelfShadingSizeExtra: 0.364
+    - _ShadowEdgeSize: 0
+    - _ShadowEdgeSmoothness: 0.071
+    - _UnityShadowMode: 0
+    - _UnityShadowPower: 0.443
+    m_Colors:
+    - _Color: {r: 0.44011083, g: 0.25672475, b: 0.4490565, a: 1}
+    - _ColorCelShadow: {r: 0.49056602, g: 0.34478462, b: 0.4476891, a: 1}
+    - _ColorDim: {r: 0.5660378, g: 0.53950477, b: 0.42452833, a: 0.85}
+    - _ColorDimExtra: {r: 0.35686275, g: 0.2901961, b: 0.4039216, a: 1}
+    - _ColorGradient: {r: 0.20568848, g: 0.19090424, b: 0.6226415, a: 1}
+    - _ColorShadows: {r: 0.5471698, g: 0.37346402, b: 0.26584196, a: 1}
+    - _FlatRimColor: {r: 0.38679248, g: 0.38679248, b: 0.38679248, a: 1}
+    - _FlatSpecularColor: {r: 0.25056958, g: 0.12833749, b: 0.26415092, a: 1}
+    - _UnityShadowColor: {r: 0.26200345, g: 0.25725347, b: 0.4433962, a: 1}
+  m_BuildTextureStacks: []

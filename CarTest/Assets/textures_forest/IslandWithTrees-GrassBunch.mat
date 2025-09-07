@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: IslandWithTrees-GrassBunch
+  m_Shader: {fileID: 4800000, guid: bee44b4a58655ee4cbff107302a3e131, type: 3}
+  m_Parent: {fileID: 2100000, guid: 67d7ff20f180be74bbd9a252712480ab, type: 2}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _TEXTUREBLENDINGMODE_MULTIPLY
+  - _UNITYSHADOWMODE_MULTIPLY
+  m_InvalidKeywords:
+  - _CELPRIMARYMODE_NONE
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs: []
+    m_Ints: []
+    m_Floats:
+    - _CelPrimaryMode: 0
+    - _FlatSpecularEdgeSmoothness: 0.897
+    - _FlatSpecularSize: 0.1
+    - _Flatness: 1
+    - _FlatnessExtra: 1
+    - _GradientAngle: 0
+    - _GradientSize: 10
+    - _SelfShadingSize: -0.89
+    - _SelfShadingSizeExtra: 0.5
+    - _ShadowEdgeSize: 0.05
+    - _ShadowEdgeSmoothness: 0
+    - _SpecularEnabled: 0
+    - _UnityShadowMode: 1
+    - _UnityShadowPower: 0.2
+    m_Colors:
+    - _Color: {r: 0.26415092, g: 0.26415092, b: 0.26415092, a: 1}
+    - _ColorCelShadow: {r: 0.7735849, g: 0.59187806, b: 0.4488252, a: 1}
+    - _ColorDim: {r: 0.85, g: 0.85, b: 0.85, a: 0.85}
+    - _ColorDimExtra: {r: 0.85, g: 0.85, b: 0.85, a: 0.85}
+    - _ColorGradient: {r: 0.65, g: 0.65, b: 0.65, a: 1}
+    - _ColorShadows: {r: 0.7830189, g: 0.09233712, b: 0.47635996, a: 1}
+    - _FlatRimColor: {r: 0.06274509, g: 0.3764706, b: 0.36200908, a: 1}
+    - _FlatSpecularColor: {r: 0.5213154, g: 0.6236126, b: 0.6698113, a: 1}
+  m_BuildTextureStacks: []

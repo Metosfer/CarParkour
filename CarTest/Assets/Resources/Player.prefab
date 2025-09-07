@@ -809,6 +809,11 @@ MonoBehaviour:
   photonSerializationRate: 15
   interpolationBackTime: 0.1
   extrapolationLimit: 0.05
+  autoBindUI: 1
+  speedTextObjectName: Speed
+  nitroSliderObjectName: Nitro
+  uiRebindInterval: 0.5
+  uiRebindMaxAttempts: 10
 --- !u!114 &1683852879910325776
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1044,7 +1049,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 07f44fe3e9c462146a7769b976c50ec4, type: 2}
+  - {fileID: 2100000, guid: b2da8ee576f344749807e82e99bf8239, type: 2}
   - {fileID: 2100000, guid: ab035d7682921704a9015ac353311d57, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
