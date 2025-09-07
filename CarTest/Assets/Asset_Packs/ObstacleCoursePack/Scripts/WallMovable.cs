@@ -1,18 +1,20 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Photon.Pun;
 
-public class WallMovable : MonoBehaviour
+public class WallMovable : MonoBehaviourPun
 {
 	public bool isDown = true; //If the wall starts down, if not you must modify to false
 	public bool isRandom = true; //If you want that the wall go down random
 	public float speed = 2f;
 
 	[Header("Kill Player")]
-	[Tooltip("Temas eden 'Player' etiketli objeyi yok et.")]
+	[Tooltip("Temas eden 'Player' etiketli objeyi respawn et.")]
 	public string playerTag = "Player";
-	[Tooltip("Çarpışan objenin kökünü yok et (araç gibi hiyerarşik yapılarda önerilir).")]
-	public bool destroyRootObject = true;
+	[Tooltip("Respawn noktası (assign)")]
+	public Transform spawnPoint;
+	[Tooltip("Respawn'da hızları sıfırla")] public bool resetVelocities = true;
 
 	private float height; //Height of the platform
 	private float posYDown; //Start position of the Y coord
@@ -86,23 +88,79 @@ public class WallMovable : MonoBehaviour
 
 	private void OnCollisionEnter(Collision collision)
 	{
-		TryDestroyPlayer(collision.collider);
+		TryRespawnPlayer(collision.collider);
 	}
 
 	private void OnTriggerEnter(Collider other)
 	{
-		TryDestroyPlayer(other);
+		TryRespawnPlayer(other);
 	}
 
-	private void TryDestroyPlayer(Collider col)
+	private void TryRespawnPlayer(Collider col)
 	{
 		if (col == null) return;
+		if (spawnPoint == null)
+		{
+			Debug.LogWarning("[Wall] SpawnPoint atanmadı, respawn yapılamıyor.");
+			return;
+		}
+
 		GameObject go = col.gameObject;
 		// Etiket kontrolü: doğrudan veya kök objede Player etiketi var mı?
 		bool isPlayer = (go.CompareTag(playerTag) || (go.transform.root != null && go.transform.root.CompareTag(playerTag)));
 		if (!isPlayer) return;
 
-		GameObject target = destroyRootObject && go.transform.root != null ? go.transform.root.gameObject : go;
-		Destroy(target);
+		Transform root = go.transform.root != null ? go.transform.root : go.transform;
+		PhotonView pv = root.GetComponentInParent<PhotonView>();
+
+		if (PhotonNetwork.IsConnected)
+		{
+			if (PhotonNetwork.IsMasterClient)
+			{
+				RespawnOnAuthority(root);
+			}
+			else
+			{
+				if (photonView != null)
+				{
+					int viewId = pv != null ? pv.ViewID : -1;
+					photonView.RPC("RPC_RequestRespawn", RpcTarget.MasterClient, viewId);
+				}
+			}
+		}
+		else
+		{
+			// Offline mod: direkt taşı
+			DoTeleport(root);
+		}
+	}
+
+	[PunRPC]
+	private void RPC_RequestRespawn(int viewId)
+	{
+		if (!PhotonNetwork.IsMasterClient) return;
+		PhotonView targetView = viewId > 0 ? PhotonView.Find(viewId) : null;
+		Transform target = targetView != null ? targetView.transform.root : null;
+		if (target == null) return;
+		RespawnOnAuthority(target);
+	}
+
+	private void RespawnOnAuthority(Transform target)
+	{
+		// Otorite tarafında taşı; CarManager otorite sync ile herkese yayar
+		DoTeleport(target);
+	}
+
+	private void DoTeleport(Transform target)
+	{
+		if (target == null || spawnPoint == null) return;
+		Rigidbody rb = target.GetComponentInChildren<Rigidbody>();
+		if (rb && resetVelocities)
+		{
+			rb.velocity = Vector3.zero;
+			rb.angularVelocity = Vector3.zero;
+		}
+		target.position = spawnPoint.position;
+		target.rotation = spawnPoint.rotation;
 	}
 }

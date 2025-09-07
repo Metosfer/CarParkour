@@ -4,8 +4,9 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using Photon.Pun;
+using Photon.Realtime;
 
-public class CarManager : MonoBehaviourPun, IPunObservable
+public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 {
     private enum ArcadeAccelMode { Torque, ForceBoost, VelocitySnap }
 
@@ -220,6 +221,11 @@ public class CarManager : MonoBehaviourPun, IPunObservable
     private float currentTargetSpeedKmh; // smoothed
     private float desiredTargetSpeedKmh; // base veya base+nitro
     private bool nitroActive;
+    
+    // Nitro senkronizasyonu (global kullanım: iki oyuncu da tetikleyebilir)
+    private readonly Dictionary<int, bool> remoteNitroRequests = new Dictionary<int, bool>();
+    private bool localNitroKey;
+    private bool prevLocalNitroKey;
 
     [Header("Co-op (Photon PUN 2)")]
     [Tooltip("Co-op kontrolünü (her oyuncu bir ön teker) etkinleştirir.")]
@@ -246,8 +252,44 @@ public class CarManager : MonoBehaviourPun, IPunObservable
     private bool IsNetworked => enableCoopNetwork && PhotonNetwork.IsConnected;
     private bool IsAuthority => !IsNetworked || PhotonNetwork.IsMasterClient;
 
+    [Header("Network Sync Ayarları")]
+    [Tooltip("PhotonNetwork.SendRate (Hz). 30-60 önerilir.")]
+    [SerializeField] private int photonSendRate = 30;
+    [Tooltip("PhotonNetwork.SerializationRate (Hz). 15-30 önerilir.")]
+    [SerializeField] private int photonSerializationRate = 15;
+    [Tooltip("Interpolasyon geri zamanı (s). Paket gecikmesine göre 0.1-0.2 arası iyi çalışır.")]
+    [SerializeField] private float interpolationBackTime = 0.1f;
+    [Tooltip("Extrapolasyon limiti (s). Kısa kopmalarda hafif tahmin için.")]
+    [SerializeField] private float extrapolationLimit = 0.05f;
+
+    private struct NetState
+    {
+        public double time;
+        public Vector3 pos;
+        public Quaternion rot;
+        public Vector3 vel;
+        public Vector3 angVel;
+    }
+    private readonly List<NetState> stateBuffer = new List<NetState>(32);
+    private const int MaxBufferedStates = 20;
+    private float recvSteerFLTarget;
+    private float recvSteerFRTarget;
+
+    [Header("UI Auto-Bind")]
+    [SerializeField] private bool autoBindUI = true;
+    [SerializeField] private string speedTextObjectName = "Speed";
+    [SerializeField] private string nitroSliderObjectName = "Nitro";
+    [Tooltip("UI daha geç yüklenecekse, kısa süre tekrar denemesi için.")]
+    [SerializeField] private float uiRebindInterval = 0.5f;
+    [SerializeField] private int uiRebindMaxAttempts = 10;
+    private float uiRebindTimer;
+    private int uiRebindAttempts;
+
     private void Awake()
     {
+    // Photon send/serialize rate ayarla (bağlı olmasa bile set edilebilir)
+    PhotonNetwork.SendRate = Mathf.Clamp(photonSendRate, 10, 120);
+    PhotonNetwork.SerializationRate = Mathf.Clamp(photonSerializationRate, 5, 60);
         rb = GetComponent<Rigidbody>();
         if (rb == null)
         {
@@ -261,6 +303,8 @@ public class CarManager : MonoBehaviourPun, IPunObservable
             {
                 rb.centerOfMass = centerOfMassOffset;
             }
+            // Görsel titreşimi azaltmak için interpolation aç
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
         }
         if (bodyVisual)
         {
@@ -271,12 +315,37 @@ public class CarManager : MonoBehaviourPun, IPunObservable
     desiredTargetSpeedKmh = currentTargetSpeedKmh;
     }
 
+    private void Start()
+    {
+        if (autoBindUI)
+        {
+            TryAutoBindUI();
+            if (!HasBoundUI())
+            {
+                uiRebindTimer = 0f;
+                uiRebindAttempts = 0;
+            }
+        }
+    }
+
     private void Update()
     {
         // Rolü belirle (ağlı isek)
         DetermineLocalRole();
 
-        // Read desired steer for each front wheel from inputs
+        // UI binding retry (UI henüz atanmadıysa belirli aralıklarla dene)
+        if (autoBindUI && !HasBoundUI())
+        {
+            uiRebindTimer += Time.deltaTime;
+            if (uiRebindTimer >= uiRebindInterval && uiRebindAttempts < uiRebindMaxAttempts)
+            {
+                uiRebindTimer = 0f;
+                uiRebindAttempts++;
+                TryAutoBindUI();
+            }
+        }
+
+    // Read desired steer for each front wheel from inputs
         float speedKmhNow = rb ? rb.velocity.magnitude * 3.6f : 0f;
         float effectiveMaxSteer = GetEffectiveMaxSteer(speedKmhNow);
         if (arcadeSteering) effectiveMaxSteer *= arcadeSteerBoost;
@@ -284,7 +353,7 @@ public class CarManager : MonoBehaviourPun, IPunObservable
         float targetFR = 0f;
         float targetFL = 0f;
 
-        if (!IsNetworked)
+    if (!IsNetworked)
         {
             // Tek oyuncu: iki teker de yerel
             if (Input.GetKey(KeyCode.RightArrow)) targetFR = +effectiveMaxSteer;
@@ -293,19 +362,19 @@ public class CarManager : MonoBehaviourPun, IPunObservable
             if (Input.GetKey(KeyCode.D)) targetFL = +effectiveMaxSteer;
             else if (Input.GetKey(KeyCode.A)) targetFL = -effectiveMaxSteer;
         }
-        else
+    else
         {
             if (localRole == CoopRole.Right)
             {
                 if (Input.GetKey(KeyCode.RightArrow)) targetFR = +effectiveMaxSteer;
                 else if (Input.GetKey(KeyCode.LeftArrow)) targetFR = -effectiveMaxSteer;
-                targetFL = remoteTargetFL;
+        targetFL = remoteTargetFL;
             }
             else // Left
             {
                 if (Input.GetKey(KeyCode.D)) targetFL = +effectiveMaxSteer;
                 else if (Input.GetKey(KeyCode.A)) targetFL = -effectiveMaxSteer;
-                targetFR = remoteTargetFR;
+        targetFR = remoteTargetFR;
             }
 
             // Otorite değilsek kendi teker açımızı Master'a yolla
@@ -325,15 +394,28 @@ public class CarManager : MonoBehaviourPun, IPunObservable
             }
         }
 
-    // Smooth towards targets (arcade ise çok daha hızlı yaklaş)
-    float steerRate = arcadeSteering ? arcadeSteerSnapSpeed : steerSlewRate;
-    float maxDelta = steerRate * Time.deltaTime;
+    // Smooth towards targets ve uygulama YALNIZ otoritede
+    if (IsAuthority)
+    {
+        float steerRate = arcadeSteering ? arcadeSteerSnapSpeed : steerSlewRate;
+        float maxDelta = steerRate * Time.deltaTime;
         steerAngleFR = Mathf.MoveTowards(steerAngleFR, targetFR, maxDelta);
         steerAngleFL = Mathf.MoveTowards(steerAngleFL, targetFL, maxDelta);
 
         // Apply steer angles to colliders (if assigned)
         if (frontRightCollider) frontRightCollider.steerAngle = steerAngleFR;
         if (frontLeftCollider) frontLeftCollider.steerAngle = steerAngleFL;
+    }
+    else
+    {
+        // Non-authority: alınan steer açılarına yumuşak yaklaş, sadece görsel amaçlı
+        float steerRate = arcadeSteering ? arcadeSteerSnapSpeed : steerSlewRate;
+        float maxDelta = steerRate * Time.deltaTime;
+        steerAngleFR = Mathf.MoveTowards(steerAngleFR, recvSteerFRTarget, maxDelta);
+        steerAngleFL = Mathf.MoveTowards(steerAngleFL, recvSteerFLTarget, maxDelta);
+        if (frontRightCollider) frontRightCollider.steerAngle = steerAngleFR;
+        if (frontLeftCollider) frontLeftCollider.steerAngle = steerAngleFL;
+    }
 
     // Toe-in / Toe-out tespiti (küçük açıları yok say)
     const float oppositeThreshold = 3f; // derecelik eşik
@@ -345,21 +427,48 @@ public class CarManager : MonoBehaviourPun, IPunObservable
     // Manual brake input
     brakingManual = Input.GetKey(manualBrakeKey);
 
-    // Nitro input & hedef hız
-    UpdateNitro(speedKmhNow);
+    // Nitro input & senkronizasyon (iki oyuncu da tetikleyebilir)
+    localNitroKey = Input.GetKey(nitroKey);
+    if (IsNetworked && !IsAuthority)
+    {
+        if (localNitroKey != prevLocalNitroKey)
+        {
+            photonView.RPC("RPC_SetNitroRequest", RpcTarget.MasterClient, localNitroKey, PhotonNetwork.LocalPlayer.ActorNumber);
+            prevLocalNitroKey = localNitroKey;
+        }
+    }
+    if (IsAuthority)
+    {
+        bool anyNitro = localNitroKey || AnyRemoteNitro();
+        UpdateNitro(speedKmhNow, anyNitro);
+    }
 
     // UI hız güncelle
     UpdateSpeedUI(speedKmhNow);
     UpdateNitroUI();
 
-    // Update visual wheels each frame for smoothness
+    // Görsel gövde eğimi
+    UpdateBodyTilt();
+
+    // Non-authority poz/rot interpolasyon (snap yerine)
+    if (!IsAuthority && IsNetworked)
+    {
+        InterpolateRemoteTransform();
+        // Hız UI doğruluğu için hız da güncellenebilir
+        if (rb && stateBuffer.Count > 0)
+        {
+            rb.velocity = stateBuffer[stateBuffer.Count - 1].vel;
+        }
+    }
+    }
+
+    private void LateUpdate()
+    {
+        // Teker görsellerini kamera güncellemesinden önce/sonra stabil tutmak için LateUpdate'te uygula
         UpdateWheelVisual(frontLeftCollider, frontLeftVisual);
         UpdateWheelVisual(frontRightCollider, frontRightVisual);
         UpdateWheelVisual(rearLeftCollider, rearLeftVisual);
         UpdateWheelVisual(rearRightCollider, rearRightVisual);
-
-    // Görsel gövde eğimi
-    UpdateBodyTilt();
     }
 
     private void FixedUpdate()
@@ -649,24 +758,150 @@ public class CarManager : MonoBehaviourPun, IPunObservable
             stream.SendNext(transform.position);
             stream.SendNext(transform.rotation);
             stream.SendNext(rb ? rb.velocity : Vector3.zero);
+            stream.SendNext(rb ? rb.angularVelocity : Vector3.zero);
             stream.SendNext(steerAngleFL);
             stream.SendNext(steerAngleFR);
+            stream.SendNext(nitroAmount);
         }
         else if (stream.IsReading && !IsAuthority)
         {
-            netPos = (Vector3)stream.ReceiveNext();
-            netRot = (Quaternion)stream.ReceiveNext();
-            netVel = (Vector3)stream.ReceiveNext();
-            steerAngleFL = (float)stream.ReceiveNext();
-            steerAngleFR = (float)stream.ReceiveNext();
+            var pos = (Vector3)stream.ReceiveNext();
+            var rot = (Quaternion)stream.ReceiveNext();
+            var vel = (Vector3)stream.ReceiveNext();
+            var angVel = (Vector3)stream.ReceiveNext();
+            recvSteerFLTarget = (float)stream.ReceiveNext();
+            recvSteerFRTarget = (float)stream.ReceiveNext();
+            nitroAmount = (float)stream.ReceiveNext();
 
-            transform.position = netPos;
-            transform.rotation = netRot;
-            if (rb) rb.velocity = netVel;
-
-            if (frontRightCollider) frontRightCollider.steerAngle = steerAngleFR;
-            if (frontLeftCollider) frontLeftCollider.steerAngle = steerAngleFL;
+            // Buffer'a ekle (zaman damgası ile)
+            var st = new NetState
+            {
+                time = info.SentServerTime,
+                pos = pos,
+                rot = rot,
+                vel = vel,
+                angVel = angVel
+            };
+            stateBuffer.Add(st);
+            if (stateBuffer.Count > MaxBufferedStates)
+                stateBuffer.RemoveAt(0);
         }
+    }
+
+    private void InterpolateRemoteTransform()
+    {
+        if (stateBuffer.Count == 0) return;
+
+        double targetTime = PhotonNetwork.Time - interpolationBackTime;
+
+        // En sondan geriye doğru, targetTime'dan daha eski olan ilk çifti bul
+        for (int i = stateBuffer.Count - 1; i >= 0; i--)
+        {
+            if (stateBuffer[i].time <= targetTime || i == 0)
+            {
+                if (i == stateBuffer.Count - 1)
+                {
+                    // Sadece en yeni varsa: gerekirse kısa extrapolasyon
+                    var latest = stateBuffer[i];
+                    double dt = targetTime - latest.time;
+                    if (dt > 0 && dt < extrapolationLimit)
+                    {
+                        Vector3 pos = latest.pos + latest.vel * (float)dt;
+                        transform.SetPositionAndRotation(pos, latest.rot);
+                    }
+                    else
+                    {
+                        transform.SetPositionAndRotation(latest.pos, latest.rot);
+                    }
+                }
+                else
+                {
+                    var older = stateBuffer[i];
+                    var newer = stateBuffer[i + 1];
+                    double segment = newer.time - older.time;
+                    float t = (segment > 1e-5) ? (float)((targetTime - older.time) / segment) : 0f;
+                    t = Mathf.Clamp01(t);
+                    Vector3 pos = Vector3.Lerp(older.pos, newer.pos, t);
+                    Quaternion rot = Quaternion.Slerp(older.rot, newer.rot, t);
+                    transform.SetPositionAndRotation(pos, rot);
+                }
+                break;
+            }
+        }
+    }
+
+    private bool HasBoundUI()
+    {
+        return (speedText != null) && (nitroSlider != null);
+    }
+
+    private void TryAutoBindUI()
+    {
+        // Speed Text (TMP)
+        if (speedText == null)
+        {
+            var text = FindInCanvasesByName<TMPro.TMP_Text>(speedTextObjectName);
+            if (text != null)
+            {
+                speedText = text;
+                float kmh = rb ? rb.velocity.magnitude * 3.6f : 0f;
+                UpdateSpeedUI(kmh);
+            }
+        }
+
+        // Nitro Slider
+        if (nitroSlider == null)
+        {
+            var slider = FindInCanvasesByName<UnityEngine.UI.Slider>(nitroSliderObjectName);
+            if (slider != null)
+            {
+                nitroSlider = slider;
+                UpdateNitroUI();
+            }
+        }
+    }
+
+    private T FindInCanvasesByName<T>(string objName) where T : Component
+    {
+        if (string.IsNullOrEmpty(objName)) return null;
+        var canvases = FindObjectsOfType<Canvas>(true);
+        for (int i = 0; i < canvases.Length; i++)
+        {
+            var t = FindDeepChild<T>(canvases[i].transform, objName);
+            if (t != null) return t;
+        }
+        return null;
+    }
+
+    private T FindDeepChild<T>(Transform parent, string name) where T : Component
+    {
+        var queue = new Queue<Transform>();
+        queue.Enqueue(parent);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (string.Equals(current.name, name, System.StringComparison.OrdinalIgnoreCase))
+            {
+                var comp = current.GetComponent<T>();
+                if (comp != null) return comp;
+            }
+            for (int i = 0; i < current.childCount; i++)
+                queue.Enqueue(current.GetChild(i));
+        }
+        return null;
+    }
+
+    [PunRPC]
+    private void RPC_SetNitroRequest(bool requested, int actorNumber)
+    {
+        if (!PhotonNetwork.IsMasterClient) return;
+        remoteNitroRequests[actorNumber] = requested;
+    }
+
+    public override void OnPlayerLeftRoom(Player otherPlayer)
+    {
+        if (remoteNitroRequests.ContainsKey(otherPlayer.ActorNumber))
+            remoteNitroRequests.Remove(otherPlayer.ActorNumber);
     }
 
     private void ApplyDriveAndBrakes(float motorTorque, float brakeTorque)
@@ -727,7 +962,7 @@ public class CarManager : MonoBehaviourPun, IPunObservable
         speedText.text = string.Format(speedTextFormat, speedKmh);
     }
 
-    private void UpdateNitro(float speedKmh)
+    private void UpdateNitro(float speedKmh, bool nitroRequested)
     {
         if (!nitroEnabled)
         {
@@ -735,8 +970,7 @@ public class CarManager : MonoBehaviourPun, IPunObservable
         }
         else
         {
-            bool press = Input.GetKey(nitroKey);
-            bool canBoost = press && nitroAmount > 0.001f;
+            bool canBoost = nitroRequested && nitroAmount > 0.001f;
             nitroActive = canBoost;
             desiredTargetSpeedKmh = targetSpeedKmh + (canBoost ? nitroExtraKmh : 0f);
 
@@ -749,6 +983,15 @@ public class CarManager : MonoBehaviourPun, IPunObservable
 
         // Hedef hıza yumuşak yaklaş (km/s)
         currentTargetSpeedKmh = Mathf.MoveTowards(currentTargetSpeedKmh, desiredTargetSpeedKmh, nitroTargetLerpSpeed * Time.deltaTime);
+    }
+
+    private bool AnyRemoteNitro()
+    {
+        foreach (var kv in remoteNitroRequests)
+        {
+            if (kv.Value) return true;
+        }
+        return false;
     }
 
     private void UpdateNitroUI()

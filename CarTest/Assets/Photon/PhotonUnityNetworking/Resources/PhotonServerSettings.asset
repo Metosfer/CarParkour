@@ -41,6 +41,8 @@ MonoBehaviour:
   - RespawnSpaceship
   - RPC_SetFL
   - RPC_SetFR
+  - RPC_SetNitroRequest
+  - RPC_RequestRespawn
   DisableAutoOpenWizard: 1
   ShowSettings: 0
   DevRegionSetOnce: 1

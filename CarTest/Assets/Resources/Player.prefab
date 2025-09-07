@@ -805,6 +805,10 @@ MonoBehaviour:
   masterControlsRight: 1
   netSendMinDelta: 1
   netSendInterval: 0.05
+  photonSendRate: 30
+  photonSerializationRate: 15
+  interpolationBackTime: 0.1
+  extrapolationLimit: 0.05
 --- !u!114 &1683852879910325776
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -820,7 +824,7 @@ MonoBehaviour:
   ObservedComponentsFoldoutOpen: 1
   Group: 0
   prefixField: -1
-  Synchronization: 3
+  Synchronization: 1
   OwnershipTransfer: 0
   observableSearch: 2
   ObservedComponents:
@@ -844,7 +848,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_SynchronizePosition: 1
   m_SynchronizeRotation: 1
-  m_SynchronizeScale: 0
+  m_SynchronizeScale: 1
   m_UseLocal: 1
 --- !u!114 &-2503838973109736737
 MonoBehaviour:
