@@ -275,6 +275,14 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private float recvSteerFLTarget;
     private float recvSteerFRTarget;
 
+    [Header("Wheel Visual Offsets")]
+    [Tooltip("Teker görsellerinin prefab’taki başlangıç rotasyonunu koru (WheelCollider pozuna offset uygular).")]
+    [SerializeField] private bool preserveWheelVisualRotation = true;
+    private Quaternion flVisualRotOffset = Quaternion.identity;
+    private Quaternion frVisualRotOffset = Quaternion.identity;
+    private Quaternion rlVisualRotOffset = Quaternion.identity;
+    private Quaternion rrVisualRotOffset = Quaternion.identity;
+
     [Header("Gizmos")]
     [Tooltip("Sahne görünümünde ağırlık merkezi (COM) işaretini çiz.")]
     [SerializeField] private bool drawCenterOfMassGizmo = true;
@@ -341,6 +349,15 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                 uiRebindTimer = 0f;
                 uiRebindAttempts = 0;
             }
+        }
+
+        // Teker görsel offsetlerini hesapla (oyun başındaki mesh rotasyonu korunsun)
+        if (preserveWheelVisualRotation)
+        {
+            ComputeWheelRotationOffset(frontLeftCollider, frontLeftVisual, ref flVisualRotOffset);
+            ComputeWheelRotationOffset(frontRightCollider, frontRightVisual, ref frVisualRotOffset);
+            ComputeWheelRotationOffset(rearLeftCollider, rearLeftVisual, ref rlVisualRotOffset);
+            ComputeWheelRotationOffset(rearRightCollider, rearRightVisual, ref rrVisualRotOffset);
         }
     }
 
@@ -481,10 +498,10 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private void LateUpdate()
     {
         // Teker görsellerini kamera güncellemesinden önce/sonra stabil tutmak için LateUpdate'te uygula
-        UpdateWheelVisual(frontLeftCollider, frontLeftVisual);
-        UpdateWheelVisual(frontRightCollider, frontRightVisual);
-        UpdateWheelVisual(rearLeftCollider, rearLeftVisual);
-        UpdateWheelVisual(rearRightCollider, rearRightVisual);
+    UpdateWheelVisual(frontLeftCollider, frontLeftVisual, flVisualRotOffset);
+    UpdateWheelVisual(frontRightCollider, frontRightVisual, frVisualRotOffset);
+    UpdateWheelVisual(rearLeftCollider, rearLeftVisual, rlVisualRotOffset);
+    UpdateWheelVisual(rearRightCollider, rearRightVisual, rrVisualRotOffset);
     }
 
     private void FixedUpdate()
@@ -944,11 +961,20 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         if (rearRightCollider) rearRightCollider.brakeTorque = brakeTorque;
     }
 
-    private static void UpdateWheelVisual(WheelCollider col, Transform visual)
+    private void ComputeWheelRotationOffset(WheelCollider col, Transform visual, ref Quaternion outOffset)
+    {
+        if (col == null || visual == null) { outOffset = Quaternion.identity; return; }
+        col.GetWorldPose(out var _pos, out var colRot);
+        // Visual’in mevcut dünya rotasyonu ile collider’ın GetWorldPose rotasyonu arasındaki fark
+        outOffset = Quaternion.Inverse(colRot) * visual.rotation;
+    }
+
+    private void UpdateWheelVisual(WheelCollider col, Transform visual, Quaternion rotOffset)
     {
         if (col == null || visual == null) return;
         col.GetWorldPose(out var pos, out var rot);
-        visual.SetPositionAndRotation(pos, rot);
+        Quaternion finalRot = preserveWheelVisualRotation ? (rot * rotOffset) : rot;
+        visual.SetPositionAndRotation(pos, finalRot);
     }
 
     private void UpdateBodyTilt()
