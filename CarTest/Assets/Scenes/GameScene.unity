@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.18028378, g: 0.22571412, b: 0.30692285, a: 1}
+  m_IndirectSpecularColor: {r: 0.18028301, g: 0.22571309, b: 0.30692127, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -2776,12 +2776,52 @@ PrefabInstance:
     - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
         type: 3}
       propertyPath: maxRollDeg
-      value: 16.7
+      value: 16.3
       objectReference: {fileID: 0}
     - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
         type: 3}
       propertyPath: useAntiRoll
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
+        type: 3}
+      propertyPath: maxSteerAngle
+      value: 45
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
+        type: 3}
+      propertyPath: arcadeAccelMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
+        type: 3}
+      propertyPath: arcadeSteerBoost
+      value: 1.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
+        type: 3}
+      propertyPath: lateralRollPerMS
+      value: 1.09
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
+        type: 3}
+      propertyPath: yawAssistStrength
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
+        type: 3}
+      propertyPath: arcadeSteerSnapSpeed
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
+        type: 3}
+      propertyPath: centerOfMassOffset.y
+      value: 0.85
+      objectReference: {fileID: 0}
+    - target: {fileID: 7761520398530318498, guid: 179b850bc643342a6a06beade1d540a7,
+        type: 3}
+      propertyPath: reverseFullThrottleUntilPercent
+      value: 0.863
       objectReference: {fileID: 0}
     - target: {fileID: 8918761575120152763, guid: 179b850bc643342a6a06beade1d540a7,
         type: 3}

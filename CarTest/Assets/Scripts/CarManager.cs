@@ -275,6 +275,22 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private float recvSteerFLTarget;
     private float recvSteerFRTarget;
 
+    [Header("Gizmos")]
+    [Tooltip("Sahne görünümünde ağırlık merkezi (COM) işaretini çiz.")]
+    [SerializeField] private bool drawCenterOfMassGizmo = true;
+    [Tooltip("COM sembolünün rengi.")]
+    [SerializeField] private Color comGizmoColor = new Color(1f, 0.5f, 0f, 0.9f);
+    [Tooltip("COM sembolü yarıçapı (metre).")]
+    [Min(0.01f)]
+    [SerializeField] private float comGizmoRadius = 0.12f;
+    [Tooltip("COM etrafında eksenleri (RGB) çiz.")]
+    [SerializeField] private bool drawComAxes = true;
+    [Tooltip("COM eksen uzunluğu (metre).")]
+    [Min(0f)]
+    [SerializeField] private float comAxisLength = 0.6f;
+    [Tooltip("Araç kökeninden (transform.position) COM'a yardımcı çizgi çiz.")]
+    [SerializeField] private bool drawLineFromOrigin = true;
+
     [Header("UI Auto-Bind")]
     [SerializeField] private bool autoBindUI = true;
     [SerializeField] private string speedTextObjectName = "Speed";
@@ -1055,5 +1071,43 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     reverseTargetSpeedKmh = Mathf.Max(0f, reverseTargetSpeedKmh);
     if (rb && overrideCenterOfMass) rb.centerOfMass = centerOfMassOffset;
     steerReduceEndKmh = Mathf.Max(steerReduceEndKmh, steerReduceStartKmh + 1f);
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (!drawCenterOfMassGizmo) return;
+
+        // Çalışma sırasındaki rb referansı yoksa (Editörde) tekrar bul
+        var body = rb ? rb : GetComponent<Rigidbody>();
+        if (body == null) return;
+
+        Vector3 worldCOM = body.worldCenterOfMass;
+
+        // Çizim
+        Color prev = Gizmos.color;
+        Gizmos.color = comGizmoColor;
+        Gizmos.DrawSphere(worldCOM, comGizmoRadius);
+        Gizmos.DrawWireSphere(worldCOM, comGizmoRadius * 1.5f);
+
+        if (drawLineFromOrigin)
+        {
+            Gizmos.color = new Color(comGizmoColor.r, comGizmoColor.g, comGizmoColor.b, 0.5f);
+            Gizmos.DrawLine(transform.position, worldCOM);
+        }
+
+        if (drawComAxes && comAxisLength > 0f)
+        {
+            // X (kırmızı)
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(worldCOM, worldCOM + transform.right * comAxisLength);
+            // Y (yeşil)
+            Gizmos.color = Color.green;
+            Gizmos.DrawLine(worldCOM, worldCOM + transform.up * comAxisLength);
+            // Z (mavi)
+            Gizmos.color = Color.blue;
+            Gizmos.DrawLine(worldCOM, worldCOM + transform.forward * comAxisLength);
+        }
+
+        Gizmos.color = prev;
     }
 }
