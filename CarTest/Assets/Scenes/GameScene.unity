@@ -157,6 +157,11 @@ MonoBehaviour:
   interpolationBackTimeBase: 0.15
   interpolationBackRttFactor: 0.6
   interpolationJitterBuffer: 0.035
+  enforceFramePacing: 0
+  vSyncCount: 0
+  targetFrameRate: 60
+  fixedDeltaTime: 0.0167
+  maximumDeltaTime: 0.0667
   applyOnAwake: 1
 --- !u!4 &32138532
 Transform:
