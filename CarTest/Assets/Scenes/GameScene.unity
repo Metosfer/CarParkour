@@ -1902,8 +1902,8 @@ MonoBehaviour:
   m_StreamingVersion: 20170927
   m_Priority: 10
   m_StandbyUpdate: 2
-  m_LookAt: {fileID: 1872148875}
-  m_Follow: {fileID: 1872148875}
+  m_LookAt: {fileID: 0}
+  m_Follow: {fileID: 0}
   m_Lens:
     FieldOfView: 69.07162
     OrthographicSize: 5
@@ -1993,99 +1993,6 @@ MonoBehaviour:
   m_Damping: 0
   m_DampingWhenOccluded: 0
   m_OptimalTargetDistance: 0
---- !u!1001 &991396275
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 708196451783403032, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_Name
-      value: Player
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 73.8
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 1.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -70.59
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: nitroFov
-      value: 120
-      objectReference: {fileID: 0}
-    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: fovSmooth
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: normalFov
-      value: 69
-      objectReference: {fileID: 0}
-    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: cinemachineVCam
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 7372999225641797370, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-        type: 3}
-      propertyPath: sceneViewId
-      value: 3
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 458f8d60174c04cb89aa63e9e7bc04cf, type: 3}
 --- !u!1 &1040253355
 GameObject:
   m_ObjectHideFlags: 3
@@ -3180,12 +3087,6 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 1867269606}
   m_PrefabAsset: {fileID: 0}
---- !u!4 &1872148875 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
-    type: 3}
-  m_PrefabInstance: {fileID: 991396275}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1966882801
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3901,4 +3802,3 @@ SceneRoots:
   - {fileID: 570224117}
   - {fileID: 1968117181}
   - {fileID: 1703648051}
-  - {fileID: 991396275}
