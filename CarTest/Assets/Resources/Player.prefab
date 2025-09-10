@@ -307,9 +307,9 @@ MonoBehaviour:
   nitroDrainPerSecond: 0.25
   nitroRegenPerSecond: 0.05
   nitroTargetLerpSpeed: 20
-  normalFov: 60
-  nitroFov: 90
-  fovSmooth: 8
+  normalFov: 69
+  nitroFov: 120
+  fovSmooth: 1
   autoBindCinemachine: 1
   cinemachineVCam: {fileID: 0}
   cinemachineFreeLook: {fileID: 0}
@@ -442,7 +442,7 @@ MonoBehaviour:
   - {fileID: 6712317042901860435}
   - {fileID: 3110503553283503050}
   - {fileID: 1266970887270383697}
-  sceneViewId: 0
+  sceneViewId: 3
   InstantiationId: 0
   isRuntimeInstantiated: 0
 --- !u!114 &3110503553283503050
