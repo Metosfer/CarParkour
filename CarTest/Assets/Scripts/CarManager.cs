@@ -338,8 +338,8 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private bool masterControlsRight = true;
     [Tooltip("Ağ paketlerinin gönderimi için açı değişim eşiği (derece).")]
     [SerializeField] private float netSendMinDelta = 1f;
-    [Tooltip("Açı gönderimleri arası minimum süre (sn).")]
-    [SerializeField] private float netSendInterval = 0.05f;
+    [Tooltip("Açı gönderimleri arası minimum süre (sn). 0.033 ≈ 30 Hz")] 
+    [SerializeField] private float netSendInterval = 0.033f;
 
     private enum CoopRole { Left, Right }
     private CoopRole localRole = CoopRole.Left;
@@ -358,13 +358,42 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
     [Header("Network Sync Ayarları")]
     [Tooltip("PhotonNetwork.SendRate (Hz). 30-60 önerilir.")]
-    [SerializeField] private int photonSendRate = 30;
-    [Tooltip("PhotonNetwork.SerializationRate (Hz). 15-30 önerilir.")]
-    [SerializeField] private int photonSerializationRate = 15;
-    [Tooltip("Interpolasyon geri zamanı (s). Paket gecikmesine göre 0.1-0.2 arası iyi çalışır.")]
-    [SerializeField] private float interpolationBackTime = 0.1f;
+    [SerializeField] private int photonSendRate = 60;
+    [Tooltip("PhotonNetwork.SerializationRate (Hz). 15-60 önerilir.")]
+    [SerializeField] private int photonSerializationRate = 30;
+    [Tooltip("Interpolasyon geri zamanı (s). Dinamik kapalıyken kullanılır.")]
+    [SerializeField] private float interpolationBackTime = 0.12f;
     [Tooltip("Extrapolasyon limiti (s). Kısa kopmalarda hafif tahmin için.")]
-    [SerializeField] private float extrapolationLimit = 0.05f;
+    [SerializeField] private float extrapolationLimit = 0.08f;
+
+    [Header("Network Smoothing")]
+    [Tooltip("Uzak (non-authority) objede hareketi yumuşat.")]
+    [SerializeField] private bool smoothRemoteMotion = true;
+    [Tooltip("Ping'e bağlı dinamik geri zaman kullan.")]
+    [SerializeField] private bool dynamicInterpolationBackTime = true;
+    [Tooltip("Dinamik mod için taban geri zaman (s). Örn: 0.10-0.16")]
+    [Min(0f)]
+    [SerializeField] private float interpolationBackTimeBase = 0.12f;
+    [Tooltip("Geri zaman için ping çarpanı (RTT * faktör). 0.5 = yarım ping.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float interpolationBackPingFactor = 0.5f;
+    [Tooltip("Ani jitter için ek güvenlik tamponu (s).")]
+    [Min(0f)]
+    [SerializeField] private float interpolationJitterBuffer = 0.02f;
+    [Tooltip("Client tarafında hedef konuma yaklaşma hızı (1/sn). 0 = anında.")]
+    [Min(0f)]
+    [SerializeField] private float clientLerpPosRate = 20f;
+    [Tooltip("Client tarafında hedef rotasyona yaklaşma hızı (1/sn). 0 = anında.")]
+    [Min(0f)]
+    [SerializeField] private float clientSlerpRotRate = 20f;
+    [Tooltip("Büyük farklarda anında atla (m). 0 = hiç atlama yapma.")]
+    [Min(0f)]
+    [SerializeField] private float clientMaxSnapDistance = 4f;
+    [Tooltip("Büyük açısal farklarda anında atla (derece). 0 = hiç atlama yapma.")]
+    [Min(0f)]
+    [SerializeField] private float clientMaxSnapAngle = 45f;
+    [Tooltip("Client'ta Rigidbody.velocity'yi de güncelle (UI/tilt için önerilir).")]
+    [SerializeField] private bool updateClientRigidbodyVelocity = true;
 
     private struct NetState
     {
@@ -378,6 +407,8 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private const int MaxBufferedStates = 20;
     private float recvSteerFLTarget;
     private float recvSteerFRTarget;
+    // Client görüntü tarafı için tahmini hız (UI/tilt)
+    private Vector3 remoteDisplayVelocity;
 
     [Header("Wheel Visual Offsets")]
     [Tooltip("Teker görsellerinin prefab’taki başlangıç rotasyonunu koru (WheelCollider pozuna offset uygular).")]
@@ -386,6 +417,8 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private Quaternion frVisualRotOffset = Quaternion.identity;
     private Quaternion rlVisualRotOffset = Quaternion.identity;
     private Quaternion rrVisualRotOffset = Quaternion.identity;
+    // Non-authority teker görsel dönmesi için kümülatif spin (deg)
+    private float flSpinDeg, frSpinDeg, rlSpinDeg, rrSpinDeg;
 
     [Header("Gizmos")]
     [Tooltip("Sahne görünümünde ağırlık merkezi (COM) işaretini çiz.")]
@@ -650,10 +683,10 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     if (!IsAuthority && IsNetworked)
     {
         InterpolateRemoteTransform();
-        // Hız UI doğruluğu için hız da güncellenebilir
-        if (rb && stateBuffer.Count > 0)
+        // UI ve tilt için yumuşatılmış hız kullan
+        if (rb && updateClientRigidbodyVelocity)
         {
-            rb.velocity = stateBuffer[stateBuffer.Count - 1].vel;
+            rb.velocity = remoteDisplayVelocity;
         }
     }
     }
@@ -1031,9 +1064,16 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     {
         if (stateBuffer.Count == 0) return;
 
-        double targetTime = PhotonNetwork.Time - interpolationBackTime;
+        // Ping'e göre dinamik geri zaman
+        float backTime = GetCurrentBackTime();
+        double targetTime = PhotonNetwork.Time - backTime;
 
         // En sondan geriye doğru, targetTime'dan daha eski olan ilk çifti bul
+    Vector3 targetPos = transform.position;
+    Quaternion targetRot = transform.rotation;
+    Vector3 targetVel = rb ? rb.velocity : Vector3.zero;
+
+        bool found = false;
         for (int i = stateBuffer.Count - 1; i >= 0; i--)
         {
             if (stateBuffer[i].time <= targetTime || i == 0)
@@ -1045,12 +1085,15 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                     double dt = targetTime - latest.time;
                     if (dt > 0 && dt < extrapolationLimit)
                     {
-                        Vector3 pos = latest.pos + latest.vel * (float)dt;
-                        transform.SetPositionAndRotation(pos, latest.rot);
+                        targetPos = latest.pos + latest.vel * (float)dt;
+                        targetRot = latest.rot; // rot extrap değil
+                        targetVel = latest.vel;
                     }
                     else
                     {
-                        transform.SetPositionAndRotation(latest.pos, latest.rot);
+                        targetPos = latest.pos;
+                        targetRot = latest.rot;
+                        targetVel = latest.vel;
                     }
                 }
                 else
@@ -1060,13 +1103,55 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                     double segment = newer.time - older.time;
                     float t = (segment > 1e-5) ? (float)((targetTime - older.time) / segment) : 0f;
                     t = Mathf.Clamp01(t);
-                    Vector3 pos = Vector3.Lerp(older.pos, newer.pos, t);
-                    Quaternion rot = Quaternion.Slerp(older.rot, newer.rot, t);
-                    transform.SetPositionAndRotation(pos, rot);
+                    targetPos = Vector3.Lerp(older.pos, newer.pos, t);
+                    targetRot = Quaternion.Slerp(older.rot, newer.rot, t);
+                    targetVel = Vector3.Lerp(older.vel, newer.vel, t);
                 }
+                found = true;
                 break;
             }
         }
+
+        if (!found)
+        {
+            var last = stateBuffer[stateBuffer.Count - 1];
+            targetPos = last.pos;
+            targetRot = last.rot;
+            targetVel = last.vel;
+        }
+
+        // Snap eşikleri
+        float dist = Vector3.Distance(transform.position, targetPos);
+        float ang = Quaternion.Angle(transform.rotation, targetRot);
+        bool snapPos = (clientMaxSnapDistance > 0f) && dist > clientMaxSnapDistance;
+        bool snapRot = (clientMaxSnapAngle > 0f) && ang > clientMaxSnapAngle;
+
+        if (!smoothRemoteMotion || (clientLerpPosRate <= 0f && clientSlerpRotRate <= 0f) || snapPos || snapRot)
+        {
+            transform.SetPositionAndRotation(targetPos, targetRot);
+        }
+        else
+        {
+            float posAlpha = 1f - Mathf.Exp(-clientLerpPosRate * Time.deltaTime);
+            float rotAlpha = 1f - Mathf.Exp(-clientSlerpRotRate * Time.deltaTime);
+            Vector3 newPos = Vector3.Lerp(transform.position, targetPos, posAlpha);
+            Quaternion newRot = Quaternion.Slerp(transform.rotation, targetRot, rotAlpha);
+            transform.SetPositionAndRotation(newPos, newRot);
+        }
+
+        // Görüntü hızını da yumuşat
+        float velAlpha = 1f - Mathf.Exp(-clientLerpPosRate * Time.deltaTime);
+        remoteDisplayVelocity = Vector3.Lerp(remoteDisplayVelocity, targetVel, velAlpha);
+    }
+
+    private float GetCurrentBackTime()
+    {
+        if (!dynamicInterpolationBackTime)
+            return Mathf.Max(0f, interpolationBackTime);
+        // RTT ms -> s. backTime ≈ base + RTT*factor + jitterBuffer
+        float rttSeconds = (PhotonNetwork.NetworkingClient != null ? PhotonNetwork.NetworkingClient.LoadBalancingPeer.RoundTripTime : 0) / 1000f;
+        float bt = interpolationBackTimeBase + rttSeconds * interpolationBackPingFactor + interpolationJitterBuffer;
+        return Mathf.Clamp(bt, 0.02f, 0.5f);
     }
 
     private bool HasBoundUI()
@@ -1187,8 +1272,49 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     {
         if (col == null || visual == null) return;
         col.GetWorldPose(out var pos, out var rot);
-        Quaternion finalRot = preserveWheelVisualRotation ? (rot * rotOffset) : rot;
-        visual.SetPositionAndRotation(pos, finalRot);
+
+        // Taban rotasyon (steer/suspension) + opsiyonel offset
+        Quaternion baseRot = preserveWheelVisualRotation ? (rot * rotOffset) : rot;
+
+        // Otorite değilsek, fizik RPM güncellenmediği için görsel spin'i hızdan türet
+        if (!IsAuthority && rb != null)
+        {
+            float radius = Mathf.Max(0.001f, col.radius);
+            // Teker yönünde doğrusal hız (m/sn) – steer edilene göre güncel yön
+            float v = Vector3.Dot(remoteDisplayVelocity, col.transform.forward);
+            float angVelDegPerSec = (v / radius) * Mathf.Rad2Deg; // deg/s
+            float spin = GetWheelSpin(col);
+            spin += angVelDegPerSec * Time.deltaTime;
+            // overflow’u sınırlı tut
+            spin = Mathf.Repeat(spin, 360f);
+            SetWheelSpin(col, spin);
+
+            // Yerel X ekseni etrafında dön
+            Quaternion spinQ = Quaternion.AngleAxis(spin, Vector3.right);
+            Quaternion finalRot = baseRot * spinQ; // local-space spin
+            visual.SetPositionAndRotation(pos, finalRot);
+            return;
+        }
+
+        // Otorite: normal
+        visual.SetPositionAndRotation(pos, baseRot);
+    }
+
+    private float GetWheelSpin(WheelCollider col)
+    {
+        if (col == frontLeftCollider) return flSpinDeg;
+        if (col == frontRightCollider) return frSpinDeg;
+        if (col == rearLeftCollider) return rlSpinDeg;
+        if (col == rearRightCollider) return rrSpinDeg;
+        return 0f;
+    }
+
+    private void SetWheelSpin(WheelCollider col, float val)
+    {
+        if (col == frontLeftCollider) flSpinDeg = val;
+        else if (col == frontRightCollider) frSpinDeg = val;
+        else if (col == rearLeftCollider) rlSpinDeg = val;
+        else if (col == rearRightCollider) rrSpinDeg = val;
     }
 
     private void UpdateBodyTilt()

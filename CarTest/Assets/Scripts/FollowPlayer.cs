@@ -27,6 +27,7 @@ public class FollowPlayer : MonoBehaviour
     private CinemachineVirtualCamera vcam;
     private Transform cachedTarget;
     private float nextCheckTime;
+    private CinemachineBrain brain;
 
     [Header("Nitro FOV")]
     [Tooltip("Nitro basılıyken FOV artırmayı etkinleştir")] 
@@ -43,9 +44,16 @@ public class FollowPlayer : MonoBehaviour
     [SerializeField] private float fovSmooth = 8f;
     private float currentFov;
 
+    [Header("Cinemachine Brain")]
+    [Tooltip("Beynin update metodunu ayarla (kamera gecikmesini azaltmak için önerilir)")]
+    [SerializeField] private bool configureBrainUpdate = true;
+    [Tooltip("Kamera güncelleme zamanı")] 
+    [SerializeField] private CinemachineBrain.UpdateMethod brainUpdateMethod = CinemachineBrain.UpdateMethod.LateUpdate;
+
     private void Awake()
     {
         vcam = GetComponent<CinemachineVirtualCamera>();
+    brain = Camera.main ? Camera.main.GetComponent<CinemachineBrain>() : null;
     }
 
     private void OnEnable()
@@ -59,6 +67,7 @@ public class FollowPlayer : MonoBehaviour
     if (nitroFov <= 0f) nitroFov = Mathf.Max(1f, normalFov);
     currentFov = lensFov > 0f ? lensFov : normalFov;
     ApplyFov(currentFov);
+    ApplyBrainSettings();
     }
 
     private void Update()
@@ -80,6 +89,22 @@ public class FollowPlayer : MonoBehaviour
             float target = nitroPressed ? nitroFov : normalFov;
             currentFov = Mathf.Lerp(currentFov, target, 1f - Mathf.Exp(-fovSmooth * Time.deltaTime));
             ApplyFov(currentFov);
+        }
+
+        // Beyin yoksa bulmayı dene (kamera değişmiş olabilir)
+        if (brain == null && Camera.main)
+        {
+            brain = Camera.main.GetComponent<CinemachineBrain>();
+            ApplyBrainSettings();
+        }
+    }
+
+    private void ApplyBrainSettings()
+    {
+        if (!configureBrainUpdate) return;
+        if (brain != null)
+        {
+            brain.m_UpdateMethod = brainUpdateMethod;
         }
     }
 
@@ -158,6 +183,9 @@ public class FollowPlayer : MonoBehaviour
                 tpf.ShoulderOffset = new Vector3(lateralOffset, 0f, 0f);
                 tpf.VerticalArmLength = heightOffset;
                 // tpf.CameraSide 0.5 merkez; 0 sol, 1 sağ; lateralOffset ile birlikte ayarlanabilir
+                // Ağ ortamında daha az gecikme için yumuşatmaları azalt
+                tpf.Damping.y = Mathf.Max(0f, tpf.Damping.y * 0.5f);
+                tpf.Damping.z = Mathf.Max(0f, tpf.Damping.z * 0.5f);
                 return;
             }
 
@@ -170,6 +198,10 @@ public class FollowPlayer : MonoBehaviour
             // Arkadan takip için -Z ekseninde mesafe
             var offset = new Vector3(lateralOffset, heightOffset, -Mathf.Abs(followDistance));
             transposer.m_FollowOffset = offset;
+            // Ağ ortamında lag hissini azaltmak için damping’i hafiflet
+            transposer.m_XDamping *= 0.5f;
+            transposer.m_YDamping *= 0.5f;
+            transposer.m_ZDamping *= 0.5f;
         }
     }
 

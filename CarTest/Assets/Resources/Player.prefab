@@ -371,11 +371,21 @@ MonoBehaviour:
   enableCoopNetwork: 1
   masterControlsRight: 1
   netSendMinDelta: 1
-  netSendInterval: 0.05
-  photonSendRate: 30
-  photonSerializationRate: 15
+  netSendInterval: 0.01
+  photonSendRate: 50
+  photonSerializationRate: 25
   interpolationBackTime: 0.1
-  extrapolationLimit: 0.05
+  extrapolationLimit: 0.03
+  smoothRemoteMotion: 1
+  dynamicInterpolationBackTime: 1
+  interpolationBackTimeBase: 0.2
+  interpolationBackPingFactor: 0.2
+  interpolationJitterBuffer: 0.03
+  clientLerpPosRate: 20
+  clientSlerpRotRate: 20
+  clientMaxSnapDistance: 4
+  clientMaxSnapAngle: 45
+  updateClientRigidbodyVelocity: 1
   preserveWheelVisualRotation: 1
   drawCenterOfMassGizmo: 1
   comGizmoColor: {r: 1, g: 0.5, b: 0, a: 0.9}
@@ -972,6 +982,8 @@ GameObject:
   - component: {fileID: 5245191817571988819}
   - component: {fileID: 1033742974418814132}
   - component: {fileID: 3181729246899388492}
+  - component: {fileID: 2381643346894619505}
+  - component: {fileID: 5701502327112484078}
   m_Layer: 0
   m_Name: sol_arka_tekerlek.001
   m_TagString: Untagged
@@ -1045,6 +1057,45 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &2381643346894619505
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2171504548687954743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa584fbee541324448dd18d8409c7a41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ObservedComponentsFoldoutOpen: 1
+  Group: 0
+  prefixField: -1
+  Synchronization: 3
+  OwnershipTransfer: 0
+  observableSearch: 2
+  ObservedComponents:
+  - {fileID: 5701502327112484078}
+  sceneViewId: 0
+  InstantiationId: 0
+  isRuntimeInstantiated: 0
+--- !u!114 &5701502327112484078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2171504548687954743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SynchronizePosition: 1
+  m_SynchronizeRotation: 1
+  m_SynchronizeScale: 0
+  m_UseLocal: 1
 --- !u!1 &2186256946021461633
 GameObject:
   m_ObjectHideFlags: 0
@@ -1757,6 +1808,8 @@ GameObject:
   - component: {fileID: 6669482138779574452}
   - component: {fileID: 7823817055556731375}
   - component: {fileID: 7352203969662944052}
+  - component: {fileID: 7324552105681661212}
+  - component: {fileID: 7259254296560033009}
   m_Layer: 0
   m_Name: "sol_\xF6n_tekerlek"
   m_TagString: Untagged
@@ -1830,6 +1883,45 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &7324552105681661212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4856844151420130877}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa584fbee541324448dd18d8409c7a41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ObservedComponentsFoldoutOpen: 1
+  Group: 0
+  prefixField: -1
+  Synchronization: 3
+  OwnershipTransfer: 0
+  observableSearch: 2
+  ObservedComponents:
+  - {fileID: 7259254296560033009}
+  sceneViewId: 0
+  InstantiationId: 0
+  isRuntimeInstantiated: 0
+--- !u!114 &7259254296560033009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4856844151420130877}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SynchronizePosition: 1
+  m_SynchronizeRotation: 1
+  m_SynchronizeScale: 0
+  m_UseLocal: 1
 --- !u!1 &4860639812419529102
 GameObject:
   m_ObjectHideFlags: 0
@@ -3131,6 +3223,8 @@ GameObject:
   - component: {fileID: 2088956720943582448}
   - component: {fileID: 5875356581223429396}
   - component: {fileID: 8053372555770137640}
+  - component: {fileID: 4005941278826870984}
+  - component: {fileID: 6250984142824225234}
   m_Layer: 0
   m_Name: sag_arka_tekerlek.003
   m_TagString: Untagged
@@ -3204,6 +3298,44 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &4005941278826870984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7297176087698409431}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa584fbee541324448dd18d8409c7a41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ObservedComponentsFoldoutOpen: 1
+  Group: 0
+  prefixField: -1
+  Synchronization: 3
+  OwnershipTransfer: 0
+  observableSearch: 2
+  ObservedComponents: []
+  sceneViewId: 0
+  InstantiationId: 0
+  isRuntimeInstantiated: 0
+--- !u!114 &6250984142824225234
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7297176087698409431}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SynchronizePosition: 1
+  m_SynchronizeRotation: 1
+  m_SynchronizeScale: 0
+  m_UseLocal: 1
 --- !u!1 &7421899641235990052
 GameObject:
   m_ObjectHideFlags: 0
@@ -3386,6 +3518,8 @@ GameObject:
   - component: {fileID: 8871450755862489814}
   - component: {fileID: 3093288934436856243}
   - component: {fileID: 1495355722521650265}
+  - component: {fileID: 3480678776805007203}
+  - component: {fileID: 7225433400681663644}
   m_Layer: 0
   m_Name: "sa\u011F_\xF6n_tekerlek.002"
   m_TagString: Untagged
@@ -3459,6 +3593,44 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &3480678776805007203
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7832118585333143553}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa584fbee541324448dd18d8409c7a41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ObservedComponentsFoldoutOpen: 1
+  Group: 0
+  prefixField: -1
+  Synchronization: 3
+  OwnershipTransfer: 0
+  observableSearch: 2
+  ObservedComponents: []
+  sceneViewId: 0
+  InstantiationId: 0
+  isRuntimeInstantiated: 0
+--- !u!114 &7225433400681663644
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7832118585333143553}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SynchronizePosition: 1
+  m_SynchronizeRotation: 1
+  m_SynchronizeScale: 0
+  m_UseLocal: 1
 --- !u!1 &8075695757543476165
 GameObject:
   m_ObjectHideFlags: 0

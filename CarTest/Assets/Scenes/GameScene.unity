@@ -1614,8 +1614,8 @@ MonoBehaviour:
   m_ShowCameraFrustum: 1
   m_IgnoreTimeScale: 0
   m_WorldUpOverride: {fileID: 0}
-  m_UpdateMethod: 2
-  m_BlendUpdateMethod: 1
+  m_UpdateMethod: 1
+  m_BlendUpdateMethod: 0
   m_DefaultBlend:
     m_Style: 1
     m_Time: 2
@@ -1963,6 +1963,8 @@ MonoBehaviour:
   normalFov: 60
   nitroFov: 90
   fovSmooth: 1.5
+  configureBrainUpdate: 1
+  brainUpdateMethod: 1
 --- !u!114 &907557588
 MonoBehaviour:
   m_ObjectHideFlags: 0
