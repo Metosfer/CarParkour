@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine.UI;
 using Photon.Pun;
 using Photon.Realtime;
+using Cinemachine;
 
 public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 {
@@ -124,6 +125,25 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [Tooltip("Nitro hedef hıza yaklaşma hızı (km/sanat / s). Daha yüksek, daha hızlı yükselir/düşer.")]
     [Min(0.1f)]
     [SerializeField] private float nitroTargetLerpSpeed = 20f;
+
+    [Header("Camera FOV (Cinemachine)")]
+    [Tooltip("Nitro kapalıyken kullanılacak FOV (derece). 0 veya negatifse mevcut kameradan okunur.")]
+    [Min(0f)]
+    [SerializeField] private float normalFov = 60f;
+    [Tooltip("Nitro aktifken hedef FOV (derece). Editörde değiştirilebilir.")]
+    [Min(1f)]
+    [SerializeField] private float nitroFov = 90f;
+    [Tooltip("FOV değişiminin yumuşatma hızı (lerp/s). Daha yüksek = daha hızlı.")]
+    [Min(0.1f)]
+    [SerializeField] private float fovSmooth = 8f;
+    [Header("Cinemachine Bağlantı")] 
+    [Tooltip("Sahnedeki Cinemachine kamerayı otomatik bulmayı dene.")]
+    [SerializeField] private bool autoBindCinemachine = true;
+    [Tooltip("Kullanılacak Cinemachine Virtual Camera (varsa atayın).")]
+    [SerializeField] private CinemachineVirtualCamera cinemachineVCam;
+    [Tooltip("Alternatif olarak Cinemachine FreeLook.")]
+    [SerializeField] private CinemachineFreeLook cinemachineFreeLook;
+    private float currentFov;
 
     [Header("Arcade Fren Ayarları")]
     [Tooltip("Fren tepkisini arcade yapar (daha güçlü ve keskin yavaşlama).")]
@@ -278,19 +298,6 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
     // Remote client cache (two-player kurgusu için)
     private int cachedRemoteClientActor = -1;
-
-    [Header("Nitro Reset / Respawn")]
-    [Tooltip("Obje yeniden etkinleştiğinde (respawn) nitro VFX pozları varsayılanına dönsün")] 
-    [SerializeField] private bool resetNitroOnEnable = true;
-    // Default local poses for reset
-    private Vector3 exhaustLeftDefLocalPos;
-    private Quaternion exhaustLeftDefLocalRot;
-    private Vector3 exhaustRightDefLocalPos;
-    private Quaternion exhaustRightDefLocalRot;
-    private Vector3 vfxLeftDefLocalPos;
-    private Quaternion vfxLeftDefLocalRot;
-    private Vector3 vfxRightDefLocalPos;
-    private Quaternion vfxRightDefLocalRot;
 
     [Header("Default Exhaust VFX")]
     [Tooltip("Sol default egzoz ParticleSystem (nitro yokken açık)")]
@@ -481,7 +488,6 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     // VFX otomatik instantiate
     TrySetupNitroVfx();
     EnsureNitroVfxParentingAndConfig();
-    CacheNitroVfxDefaults();
 
     // Default egzoz başlangıç durumunu algıla
     if (defaultExhaustLeft) prevDefaultLeftOn = defaultExhaustLeft.isPlaying;
@@ -496,15 +502,17 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         {
             ApplyWheelFrictionBoostAll();
         }
-    }
 
-    public override void OnEnable()
-    {
-        base.OnEnable();
-        if (resetNitroOnEnable)
+        // Cinemachine auto-bind ve başlangıç FOV
+        if (autoBindCinemachine)
         {
-            ResetNitroVfxToDefaults(stopAndRestore:true);
+            if (!cinemachineVCam) cinemachineVCam = FindObjectOfType<CinemachineVirtualCamera>(true);
+            if (!cinemachineFreeLook) cinemachineFreeLook = FindObjectOfType<CinemachineFreeLook>(true);
         }
+        float initialFov = ReadCurrentFov();
+        if (normalFov <= 0f) normalFov = initialFov > 0f ? initialFov : 60f;
+        if (nitroFov <= 0f) nitroFov = Mathf.Max(1f, normalFov); // güvenli varsayılan
+        currentFov = initialFov > 0f ? initialFov : normalFov;
     }
 
     private void Update()
@@ -627,6 +635,9 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     // VFX durumlarını güncelle (her iki tarafta da çalışır, state ler authority'den okunur)
     UpdateNitroVfx();
     UpdateDefaultExhaustVfx();
+
+    // Nitro durumuna göre kamera FOV'unu yumuşak güncelle
+    UpdateCameraFov();
 
     // UI hız güncelle
     UpdateSpeedUI(speedKmhNow);
@@ -1724,7 +1735,8 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             if (enforceNitroVfxParenting && t.parent != nitroExhaustLeft)
             {
                 t.SetParent(nitroExhaustLeft, true);
-                // Dünya pozunu koru; default snapshot ayrı alınacak
+                t.localPosition = Vector3.zero;
+                t.localRotation = Quaternion.identity;
             }
             if (forceNitroLocalSimulation)
             {
@@ -1738,78 +1750,13 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             if (enforceNitroVfxParenting && t.parent != nitroExhaustRight)
             {
                 t.SetParent(nitroExhaustRight, true);
-                // Dünya pozunu koru; default snapshot ayrı alınacak
+                t.localPosition = Vector3.zero;
+                t.localRotation = Quaternion.identity;
             }
             if (forceNitroLocalSimulation)
             {
                 var main = nitroVfxRight.main; main.simulationSpace = ParticleSystemSimulationSpace.Local;
             }
-        }
-    }
-
-    private void CacheNitroVfxDefaults()
-    {
-        if (nitroExhaustLeft)
-        {
-            exhaustLeftDefLocalPos = nitroExhaustLeft.localPosition;
-            exhaustLeftDefLocalRot = nitroExhaustLeft.localRotation;
-        }
-        if (nitroExhaustRight)
-        {
-            exhaustRightDefLocalPos = nitroExhaustRight.localPosition;
-            exhaustRightDefLocalRot = nitroExhaustRight.localRotation;
-        }
-        if (nitroVfxLeft)
-        {
-            var t = nitroVfxLeft.transform;
-            vfxLeftDefLocalPos = t.localPosition;
-            vfxLeftDefLocalRot = t.localRotation;
-        }
-        if (nitroVfxRight)
-        {
-            var t = nitroVfxRight.transform;
-            vfxRightDefLocalPos = t.localPosition;
-            vfxRightDefLocalRot = t.localRotation;
-        }
-    }
-
-    public void ResetNitroVfxToDefaults(bool stopAndRestore)
-    {
-        // Exhaust transformları
-        if (nitroExhaustLeft)
-        {
-            nitroExhaustLeft.localPosition = exhaustLeftDefLocalPos;
-            nitroExhaustLeft.localRotation = exhaustLeftDefLocalRot;
-        }
-        if (nitroExhaustRight)
-        {
-            nitroExhaustRight.localPosition = exhaustRightDefLocalPos;
-            nitroExhaustRight.localRotation = exhaustRightDefLocalRot;
-        }
-        // VFX child'ları
-        if (nitroVfxLeft)
-        {
-            var t = nitroVfxLeft.transform;
-            t.localPosition = vfxLeftDefLocalPos;
-            t.localRotation = vfxLeftDefLocalRot;
-            if (stopAndRestore) nitroVfxLeft.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        }
-        if (nitroVfxRight)
-        {
-            var t = nitroVfxRight.transform;
-            t.localPosition = vfxRightDefLocalPos;
-            t.localRotation = vfxRightDefLocalRot;
-            if (stopAndRestore) nitroVfxRight.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        }
-
-        // Default egzozu da eski haline döndür
-        if (stopAndRestore)
-        {
-            RestoreDefaultExhaustAlpha();
-            if (defaultExhaustLeft) SafePlay(defaultExhaustLeft);
-            if (defaultExhaustRight) SafePlay(defaultExhaustRight);
-            prevVfxLeftActive = false;
-            prevVfxRightActive = false;
         }
     }
 
@@ -1872,6 +1819,60 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     {
         ApplyWheelFrictionBoostAll();
     }
+        // FOV değerlerini makul aralıklara sıkıştır
+        if (normalFov < 0f) normalFov = 0f;
+        nitroFov = Mathf.Max(1f, nitroFov);
+    }
+
+    private bool IsLocalNitroActive()
+    {
+        if (!enableCoopNetwork) return nitroActiveMaster; // tek oyuncu kabul
+        // Yerel oyuncu hangi rolde olursa olsun, kendi nitrosunu görmek ister
+        return PhotonNetwork.IsMasterClient ? nitroActiveMaster : nitroActiveClient;
+    }
+
+    private void UpdateCameraFov()
+    {
+        float target = IsLocalNitroActive() ? nitroFov : normalFov;
+        currentFov = Mathf.Lerp(currentFov, target, 1f - Mathf.Exp(-fovSmooth * Time.deltaTime));
+        ApplyFov(currentFov);
+    }
+
+    private float ReadCurrentFov()
+    {
+        if (cinemachineVCam)
+        {
+            return cinemachineVCam.m_Lens.FieldOfView;
+        }
+        if (cinemachineFreeLook)
+        {
+            return cinemachineFreeLook.m_Lens.FieldOfView;
+        }
+        var cam = Camera.main;
+        return cam ? cam.fieldOfView : 60f;
+    }
+
+    private void ApplyFov(float fov)
+    {
+        if (cinemachineVCam)
+        {
+            var lens = cinemachineVCam.m_Lens;
+            lens.FieldOfView = fov;
+            cinemachineVCam.m_Lens = lens;
+            return;
+        }
+        if (cinemachineFreeLook)
+        {
+            var lens = cinemachineFreeLook.m_Lens;
+            lens.FieldOfView = fov;
+            cinemachineFreeLook.m_Lens = lens;
+            return;
+        }
+        var cam = Camera.main;
+        if (cam)
+        {
+            cam.fieldOfView = fov;
+        }
     }
 
     private void ApplyWheelFrictionBoostAll()

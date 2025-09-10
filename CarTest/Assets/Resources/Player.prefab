@@ -275,12 +275,12 @@ MonoBehaviour:
   nitroSlider: {fileID: 0}
   bodyVisual: {fileID: 7007721339930520751}
   enableBodyTilt: 1
-  maxRollDeg: 18.9
+  maxRollDeg: 2.1
   lateralRollPerMS: 1.09
-  steerRollDeg: 4
-  tiltSmooth: 8
+  steerRollDeg: 2
+  tiltSmooth: 4
   autoBindBodyVisual: 1
-  bodyVisualSearchNames: Body,CarBody,Mesh,Chassis
+  bodyVisualSearchNames: Body
   massKg: 6000
   overrideCenterOfMass: 1
   centerOfMassOffset: {x: 0, y: -0.76, z: -2.64}
@@ -307,6 +307,12 @@ MonoBehaviour:
   nitroDrainPerSecond: 0.25
   nitroRegenPerSecond: 0.05
   nitroTargetLerpSpeed: 20
+  normalFov: 60
+  nitroFov: 90
+  fovSmooth: 8
+  autoBindCinemachine: 1
+  cinemachineVCam: {fileID: 0}
+  cinemachineFreeLook: {fileID: 0}
   arcadeBraking: 1
   arcadeBrakeMultiplier: 1
   brakeExtraDecel: 25
@@ -341,7 +347,7 @@ MonoBehaviour:
   lateralVelDampingPerSec: 8
   boostWheelFriction: 1
   forwardFrictionStiffness: 1.2
-  sidewaysFrictionStiffness: 2.2
+  sidewaysFrictionStiffness: 3.5
   yawAssistArcadeMultiplier: 1.4
   nitroExhaustLeft: {fileID: 7868560402894926675}
   nitroExhaustRight: {fileID: 5429169071907373390}
@@ -352,7 +358,6 @@ MonoBehaviour:
   autoInstantiateVfx: 1
   enforceNitroVfxParenting: 1
   forceNitroLocalSimulation: 1
-  resetNitroOnEnable: 1
   defaultExhaustLeft: {fileID: 198124144702787664, guid: 61bb62591466c3649bdf4905822d72f6,
     type: 3}
   defaultExhaustRight: {fileID: 198124144702787664, guid: 61bb62591466c3649bdf4905822d72f6,
@@ -983,7 +988,7 @@ Transform:
   m_GameObject: {fileID: 2171504548687954743}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7069856, y: 0.013077555, z: 0.008092132, w: 0.7070607}
-  m_LocalPosition: {x: -1.62, y: 0.645, z: 1.254}
+  m_LocalPosition: {x: -1.62, y: 0.645, z: 1.17}
   m_LocalScale: {x: 99.99997, y: 99.999985, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1768,7 +1773,7 @@ Transform:
   m_GameObject: {fileID: 4856844151420130877}
   serializedVersion: 2
   m_LocalRotation: {x: -0.70710236, y: 0.0024929643, z: -0.002492977, w: 0.7071024}
-  m_LocalPosition: {x: 1.94, y: 0.6197471, z: 1.32}
+  m_LocalPosition: {x: 1.94, y: 0.6197471, z: 1.15}
   m_LocalScale: {x: 99.999954, y: 99.99998, z: 99.99998}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3142,7 +3147,7 @@ Transform:
   m_GameObject: {fileID: 7297176087698409431}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7069856, y: 0.013077555, z: 0.008092132, w: 0.7070607}
-  m_LocalPosition: {x: -1.64, y: 0.64498913, z: -1.28}
+  m_LocalPosition: {x: -1.64, y: 0.64498913, z: -1.16}
   m_LocalScale: {x: 99.99997, y: 99.999985, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3313,7 +3318,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7868560402894926675}
-  - component: {fileID: 7751141567335818183}
   m_Layer: 3
   m_Name: SolEgzosRef
   m_TagString: Untagged
@@ -3330,39 +3334,12 @@ Transform:
   m_GameObject: {fileID: 7569236532444172732}
   serializedVersion: 2
   m_LocalRotation: {x: -0.00000008940697, y: -0.59775895, z: 0.0000007748604, w: 0.801676}
-  m_LocalPosition: {x: -0.03871, y: -0.0087, z: 0.00632}
+  m_LocalPosition: {x: -0.03749, y: -0.0087, z: 0.00631}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7007721339930520751}
   m_LocalEulerAnglesHint: {x: 0, y: -73.419, z: 0}
---- !u!54 &7751141567335818183
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7569236532444172732}
-  serializedVersion: 4
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 126
-  m_CollisionDetection: 0
 --- !u!1 &7689213317661939976
 GameObject:
   m_ObjectHideFlags: 0
@@ -3425,7 +3402,7 @@ Transform:
   m_GameObject: {fileID: 7832118585333143553}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7069856, y: 0.013077555, z: 0.008092132, w: 0.7070607}
-  m_LocalPosition: {x: 1.86, y: 0.620283, z: -1.37}
+  m_LocalPosition: {x: 1.86, y: 0.620283, z: -1.2}
   m_LocalScale: {x: 99.99997, y: 99.999985, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3740,7 +3717,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5429169071907373390}
-  - component: {fileID: 1713805347072150790}
   m_Layer: 3
   m_Name: SagEgzosRef
   m_TagString: Untagged
@@ -3763,33 +3739,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 7007721339930520751}
   m_LocalEulerAnglesHint: {x: 0, y: -73.419, z: 0}
---- !u!54 &1713805347072150790
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9066546107127639186}
-  serializedVersion: 4
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 126
-  m_CollisionDetection: 0
 --- !u!1001 &3625023313381673255
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3881,7 +3830,7 @@ PrefabInstance:
     - target: {fileID: 198279101275435388, guid: 9e03786a9517b604d8e930182607a128,
         type: 3}
       propertyPath: InitialModule.startSpeed.scalar
-      value: 25
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 198279101275435388, guid: 9e03786a9517b604d8e930182607a128,
         type: 3}
@@ -4031,7 +3980,7 @@ PrefabInstance:
     - target: {fileID: 198279101275435388, guid: 9e03786a9517b604d8e930182607a128,
         type: 3}
       propertyPath: InitialModule.startSpeed.scalar
-      value: 25
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 198279101275435388, guid: 9e03786a9517b604d8e930182607a128,
         type: 3}

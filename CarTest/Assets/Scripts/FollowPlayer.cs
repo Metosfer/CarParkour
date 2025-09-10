@@ -28,6 +28,21 @@ public class FollowPlayer : MonoBehaviour
     private Transform cachedTarget;
     private float nextCheckTime;
 
+    [Header("Nitro FOV")]
+    [Tooltip("Nitro basılıyken FOV artırmayı etkinleştir")] 
+    [SerializeField] private bool enableFovBoost = true;
+    [Tooltip("Nitro tuşu")] 
+    [SerializeField] private KeyCode nitroKey = KeyCode.LeftShift;
+    [Tooltip("Nitro yokken FOV (0 veya daha küçükse başlangıçtaki kameradan okunur)")] 
+    [SerializeField] private float normalFov = 0f;
+    [Tooltip("Nitro basılıyken hedef FOV")] 
+    [Min(1f)]
+    [SerializeField] private float nitroFov = 90f;
+    [Tooltip("FOV değişiminin yumuşatma hızı (lerp/s). Daha yüksek = daha hızlı")] 
+    [Min(0.1f)]
+    [SerializeField] private float fovSmooth = 8f;
+    private float currentFov;
+
     private void Awake()
     {
         vcam = GetComponent<CinemachineVirtualCamera>();
@@ -37,6 +52,13 @@ public class FollowPlayer : MonoBehaviour
     {
         TryAssignTarget();
         nextCheckTime = Time.time + checkInterval;
+
+    // Başlangıç FOV'unu oku ve normalFov boşsa ayarla
+    float lensFov = ReadLensFov();
+    if (normalFov <= 0f) normalFov = lensFov > 0f ? lensFov : 60f;
+    if (nitroFov <= 0f) nitroFov = Mathf.Max(1f, normalFov);
+    currentFov = lensFov > 0f ? lensFov : normalFov;
+    ApplyFov(currentFov);
     }
 
     private void Update()
@@ -49,6 +71,15 @@ public class FollowPlayer : MonoBehaviour
             {
                 TryAssignTarget();
             }
+        }
+
+        // Nitro'ya göre FOV yumuşatma
+        if (enableFovBoost && vcam != null)
+        {
+            bool nitroPressed = Input.GetKey(nitroKey);
+            float target = nitroPressed ? nitroFov : normalFov;
+            currentFov = Mathf.Lerp(currentFov, target, 1f - Mathf.Exp(-fovSmooth * Time.deltaTime));
+            ApplyFov(currentFov);
         }
     }
 
@@ -76,6 +107,37 @@ public class FollowPlayer : MonoBehaviour
             vcam.Follow = null;
             vcam.LookAt = null;
         }
+    }
+
+    private float ReadLensFov()
+    {
+        if (vcam != null)
+        {
+            return vcam.m_Lens.FieldOfView;
+        }
+        var cam = Camera.main;
+        return cam ? cam.fieldOfView : 60f;
+    }
+
+    private void ApplyFov(float fov)
+    {
+        if (vcam != null)
+        {
+            var lens = vcam.m_Lens;
+            lens.FieldOfView = fov;
+            vcam.m_Lens = lens;
+        }
+        else
+        {
+            var cam = Camera.main;
+            if (cam) cam.fieldOfView = fov;
+        }
+    }
+
+    private void OnValidate()
+    {
+        if (nitroFov < 1f) nitroFov = 1f;
+        if (fovSmooth < 0.1f) fovSmooth = 0.1f;
     }
 
     private void ApplyFollowRig()
