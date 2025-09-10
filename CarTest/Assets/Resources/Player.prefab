@@ -376,6 +376,8 @@ MonoBehaviour:
   photonSerializationRate: 60
   interpolationBackTime: 0.12
   extrapolationLimit: 0.032
+  useGlobalPhotonConfigurator: 1
+  photonConfigurator: {fileID: 0}
   smoothRemoteMotion: 1
   dynamicInterpolationBackTime: 1
   interpolationBackTimeBase: 0.16
@@ -386,6 +388,7 @@ MonoBehaviour:
   clientMaxSnapDistance: 4
   clientMaxSnapAngle: 45
   updateClientRigidbodyVelocity: 1
+  maxBufferedStates: 20
   preserveWheelVisualRotation: 1
   drawCenterOfMassGizmo: 1
   comGizmoColor: {r: 1, g: 0.5, b: 0, a: 0.9}
@@ -445,7 +448,7 @@ MonoBehaviour:
   ObservedComponentsFoldoutOpen: 1
   Group: 0
   prefixField: -1
-  Synchronization: 3
+  Synchronization: 1
   OwnershipTransfer: 0
   observableSearch: 2
   ObservedComponents:
@@ -468,8 +471,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_SynchronizePosition: 1
-  m_SynchronizeRotation: 1
-  m_SynchronizeScale: 1
+  m_SynchronizeRotation: 0
+  m_SynchronizeScale: 0
   m_UseLocal: 1
 --- !u!114 &1266970887270383697
 MonoBehaviour:
@@ -983,7 +986,6 @@ GameObject:
   - component: {fileID: 1033742974418814132}
   - component: {fileID: 3181729246899388492}
   - component: {fileID: 2381643346894619505}
-  - component: {fileID: 5701502327112484078}
   m_Layer: 0
   m_Name: sol_arka_tekerlek.001
   m_TagString: Untagged
@@ -1000,7 +1002,7 @@ Transform:
   m_GameObject: {fileID: 2171504548687954743}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7069856, y: 0.013077555, z: 0.008092132, w: 0.7070607}
-  m_LocalPosition: {x: -1.62, y: 0.645, z: 1.17}
+  m_LocalPosition: {x: -1.62, y: 0.645, z: 1.05}
   m_LocalScale: {x: 99.99997, y: 99.999985, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1075,27 +1077,10 @@ MonoBehaviour:
   Synchronization: 3
   OwnershipTransfer: 0
   observableSearch: 2
-  ObservedComponents:
-  - {fileID: 5701502327112484078}
+  ObservedComponents: []
   sceneViewId: 0
   InstantiationId: 0
   isRuntimeInstantiated: 0
---- !u!114 &5701502327112484078
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2171504548687954743}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SynchronizePosition: 1
-  m_SynchronizeRotation: 1
-  m_SynchronizeScale: 0
-  m_UseLocal: 1
 --- !u!1 &2186256946021461633
 GameObject:
   m_ObjectHideFlags: 0
@@ -1809,7 +1794,6 @@ GameObject:
   - component: {fileID: 7823817055556731375}
   - component: {fileID: 7352203969662944052}
   - component: {fileID: 7324552105681661212}
-  - component: {fileID: 7259254296560033009}
   m_Layer: 0
   m_Name: "sol_\xF6n_tekerlek"
   m_TagString: Untagged
@@ -1902,26 +1886,10 @@ MonoBehaviour:
   OwnershipTransfer: 0
   observableSearch: 2
   ObservedComponents:
-  - {fileID: 7259254296560033009}
+  - {fileID: 0}
   sceneViewId: 0
   InstantiationId: 0
   isRuntimeInstantiated: 0
---- !u!114 &7259254296560033009
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4856844151420130877}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SynchronizePosition: 1
-  m_SynchronizeRotation: 1
-  m_SynchronizeScale: 0
-  m_UseLocal: 1
 --- !u!1 &4860639812419529102
 GameObject:
   m_ObjectHideFlags: 0
@@ -3224,7 +3192,6 @@ GameObject:
   - component: {fileID: 5875356581223429396}
   - component: {fileID: 8053372555770137640}
   - component: {fileID: 4005941278826870984}
-  - component: {fileID: 6250984142824225234}
   m_Layer: 0
   m_Name: sag_arka_tekerlek.003
   m_TagString: Untagged
@@ -3241,7 +3208,7 @@ Transform:
   m_GameObject: {fileID: 7297176087698409431}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7069856, y: 0.013077555, z: 0.008092132, w: 0.7070607}
-  m_LocalPosition: {x: -1.64, y: 0.64498913, z: -1.16}
+  m_LocalPosition: {x: -1.64, y: 0.64498913, z: -1.1}
   m_LocalScale: {x: 99.99997, y: 99.999985, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3316,26 +3283,11 @@ MonoBehaviour:
   Synchronization: 3
   OwnershipTransfer: 0
   observableSearch: 2
-  ObservedComponents: []
+  ObservedComponents:
+  - {fileID: 0}
   sceneViewId: 0
   InstantiationId: 0
   isRuntimeInstantiated: 0
---- !u!114 &6250984142824225234
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7297176087698409431}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SynchronizePosition: 1
-  m_SynchronizeRotation: 1
-  m_SynchronizeScale: 0
-  m_UseLocal: 1
 --- !u!1 &7421899641235990052
 GameObject:
   m_ObjectHideFlags: 0
@@ -3519,7 +3471,6 @@ GameObject:
   - component: {fileID: 3093288934436856243}
   - component: {fileID: 1495355722521650265}
   - component: {fileID: 3480678776805007203}
-  - component: {fileID: 7225433400681663644}
   m_Layer: 0
   m_Name: "sa\u011F_\xF6n_tekerlek.002"
   m_TagString: Untagged
@@ -3536,7 +3487,7 @@ Transform:
   m_GameObject: {fileID: 7832118585333143553}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7069856, y: 0.013077555, z: 0.008092132, w: 0.7070607}
-  m_LocalPosition: {x: 1.86, y: 0.620283, z: -1.2}
+  m_LocalPosition: {x: 1.86, y: 0.620283, z: -1.16}
   m_LocalScale: {x: 99.99997, y: 99.999985, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3611,26 +3562,11 @@ MonoBehaviour:
   Synchronization: 3
   OwnershipTransfer: 0
   observableSearch: 2
-  ObservedComponents: []
+  ObservedComponents:
+  - {fileID: 0}
   sceneViewId: 0
   InstantiationId: 0
   isRuntimeInstantiated: 0
---- !u!114 &7225433400681663644
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7832118585333143553}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SynchronizePosition: 1
-  m_SynchronizeRotation: 1
-  m_SynchronizeScale: 0
-  m_UseLocal: 1
 --- !u!1 &8075695757543476165
 GameObject:
   m_ObjectHideFlags: 0

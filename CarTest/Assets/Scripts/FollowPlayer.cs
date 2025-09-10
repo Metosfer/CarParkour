@@ -1,7 +1,8 @@
 using UnityEngine;
-using Cinemachine;
+using Photon.Pun;
 
-[RequireComponent(typeof(CinemachineVirtualCamera))]
+// Bu script doğrudan Main Camera üzerinde çalışır.
+// Cinemachine gerektirmez; "Lock To Target With World Up" benzeri bir takip uygular.
 public class FollowPlayer : MonoBehaviour
 {
     [Header("Ayarlar")]
@@ -12,6 +13,10 @@ public class FollowPlayer : MonoBehaviour
     [Tooltip("Kontrol sıklığı (saniye)")] 
     [Min(0.05f)]
     [SerializeField] private float checkInterval = 0.5f;
+    [Tooltip("Birden fazla aday varsa yerel (IsMine) PhotonView'u tercih et")] 
+    [SerializeField] private bool preferLocalPhotonView = true;
+    [Tooltip("Sadece IsMine olan hedefe bağlan (tek cihazda çoklu objeler varsa)")] 
+    [SerializeField] private bool requireIsMine = false;
 
     [Header("Takip Ofseti (Arkadan Takip)")]
     [Tooltip("Hedefe göre yatay sağ/sol ofset (m)")]
@@ -21,13 +26,22 @@ public class FollowPlayer : MonoBehaviour
     [Tooltip("Hedefin arkasına olan mesafe (m)")]
     [Min(0f)]
     [SerializeField] private float followDistance = 6.0f;
-    [Tooltip("Kamera gövdesi için bağlama modu (Transposer)")]
-    [SerializeField] private CinemachineTransposer.BindingMode bindingMode = CinemachineTransposer.BindingMode.LockToTargetWithWorldUp;
+    [Tooltip("Pozisyon yumuşatma (1/sn). Daha büyük = daha hızlı yaklaşım")]
+    [Min(0f)]
+    [SerializeField] private float positionDamping = 10f;
+    [Tooltip("Rotasyon yumuşatma (1/sn). Daha büyük = daha hızlı yaklaşım")]
+    [Min(0f)]
+    [SerializeField] private float rotationDamping = 12f;
+    [Tooltip("Hedef hızına göre ileriye bakış (m)")]
+    [Min(0f)]
+    [SerializeField] private float lookAheadByVelocity = 1.5f;
 
-    private CinemachineVirtualCamera vcam;
     private Transform cachedTarget;
     private float nextCheckTime;
-    private CinemachineBrain brain;
+    private Rigidbody targetRb;
+    private Camera cam;
+    private Vector3 currentPos;
+    private Quaternion currentRot;
 
     [Header("Nitro FOV")]
     [Tooltip("Nitro basılıyken FOV artırmayı etkinleştir")] 
@@ -44,16 +58,34 @@ public class FollowPlayer : MonoBehaviour
     [SerializeField] private float fovSmooth = 8f;
     private float currentFov;
 
-    [Header("Cinemachine Brain")]
-    [Tooltip("Beynin update metodunu ayarla (kamera gecikmesini azaltmak için önerilir)")]
-    [SerializeField] private bool configureBrainUpdate = true;
-    [Tooltip("Kamera güncelleme zamanı")] 
-    [SerializeField] private CinemachineBrain.UpdateMethod brainUpdateMethod = CinemachineBrain.UpdateMethod.LateUpdate;
+    [Header("Hız/FOV Etkileri (Opsiyonel)")]
+    [Tooltip("Hıza bağlı ek FOV")]
+    [SerializeField] private bool speedFovEnabled = true;
+    [Tooltip("Her km/s için eklenecek FOV (derece/kmh)")]
+    [Min(0f)]
+    [SerializeField] private float speedFovPerKmh = 0.05f;
+    [Tooltip("Hızdan gelen FOV artışının üst sınırı (derece)")]
+    [Min(0f)]
+    [SerializeField] private float speedFovMax = 10f;
+
+    [Header("Nitro Shake (Opsiyonel)")]
+    [Tooltip("Nitro sırasında hafif kamera sarsıntısı uygula")]
+    [SerializeField] private bool nitroShake = true;
+    [Tooltip("Sarsıntı genliği (m)")]
+    [Range(0f, 0.5f)]
+    [SerializeField] private float shakeAmplitude = 0.05f;
+    [Tooltip("Sarsıntı frekansı (Hz)")]
+    [Min(0f)]
+    [SerializeField] private float shakeFrequency = 18f;
+    private float shakeTime;
 
     private void Awake()
     {
-        vcam = GetComponent<CinemachineVirtualCamera>();
-    brain = Camera.main ? Camera.main.GetComponent<CinemachineBrain>() : null;
+        cam = GetComponent<Camera>();
+        if (cam == null)
+        {
+            cam = Camera.main;
+        }
     }
 
     private void OnEnable()
@@ -61,13 +93,20 @@ public class FollowPlayer : MonoBehaviour
         TryAssignTarget();
         nextCheckTime = Time.time + checkInterval;
 
-    // Başlangıç FOV'unu oku ve normalFov boşsa ayarla
-    float lensFov = ReadLensFov();
-    if (normalFov <= 0f) normalFov = lensFov > 0f ? lensFov : 60f;
-    if (nitroFov <= 0f) nitroFov = Mathf.Max(1f, normalFov);
-    currentFov = lensFov > 0f ? lensFov : normalFov;
-    ApplyFov(currentFov);
-    ApplyBrainSettings();
+        // Başlangıç FOV'unu oku ve normalFov boşsa ayarla
+        float startFov = ReadLensFov();
+        if (normalFov <= 0f) normalFov = startFov > 0f ? startFov : 60f;
+        if (nitroFov <= 0f) nitroFov = Mathf.Max(1f, normalFov);
+        currentFov = startFov > 0f ? startFov : normalFov;
+        ApplyFov(currentFov);
+
+        // Başlangıç konum/rot ayarla (snap)
+        if (cachedTarget)
+        {
+            ComputeDesired(out var dPos, out var dRot, 0f);
+            currentPos = dPos; currentRot = dRot;
+            transform.SetPositionAndRotation(currentPos, currentRot);
+        }
     }
 
     private void Update()
@@ -82,29 +121,43 @@ public class FollowPlayer : MonoBehaviour
             }
         }
 
-        // Nitro'ya göre FOV yumuşatma
-        if (enableFovBoost && vcam != null)
+        // Takip (Lock To Target With World Up)
+        if (cachedTarget != null)
+        {
+            ComputeDesired(out var desiredPos, out var desiredRot, Time.deltaTime);
+            float posA = 1f - Mathf.Exp(-positionDamping * Time.deltaTime);
+            float rotA = 1f - Mathf.Exp(-rotationDamping * Time.deltaTime);
+            currentPos = Vector3.Lerp(currentPos, desiredPos, posA);
+            currentRot = Quaternion.Slerp(currentRot, desiredRot, rotA);
+
+            // Nitro shake
+            Vector3 shake = Vector3.zero;
+            if (nitroShake && Input.GetKey(nitroKey))
+            {
+                shakeTime += Time.deltaTime * shakeFrequency;
+                shake = new Vector3(
+                    (Mathf.PerlinNoise(shakeTime, 0.37f) - 0.5f),
+                    (Mathf.PerlinNoise(0.73f, shakeTime) - 0.5f),
+                    0f) * (shakeAmplitude * 2f);
+            }
+
+            transform.SetPositionAndRotation(currentPos + shake, currentRot);
+        }
+
+        // Nitro'ya göre FOV yumuşatma + hız bazlı FOV
+        if (cam != null)
         {
             bool nitroPressed = Input.GetKey(nitroKey);
             float target = nitroPressed ? nitroFov : normalFov;
+            // Hızdan gelen katkı
+            if (speedFovEnabled && targetRb != null)
+            {
+                float kmh = targetRb.velocity.magnitude * 3.6f;
+                float extra = Mathf.Min(speedFovPerKmh * kmh, speedFovMax);
+                target += extra;
+            }
             currentFov = Mathf.Lerp(currentFov, target, 1f - Mathf.Exp(-fovSmooth * Time.deltaTime));
             ApplyFov(currentFov);
-        }
-
-        // Beyin yoksa bulmayı dene (kamera değişmiş olabilir)
-        if (brain == null && Camera.main)
-        {
-            brain = Camera.main.GetComponent<CinemachineBrain>();
-            ApplyBrainSettings();
-        }
-    }
-
-    private void ApplyBrainSettings()
-    {
-        if (!configureBrainUpdate) return;
-        if (brain != null)
-        {
-            brain.m_UpdateMethod = brainUpdateMethod;
         }
     }
 
@@ -116,93 +169,61 @@ public class FollowPlayer : MonoBehaviour
 
     private void TryAssignTarget()
     {
-        if (vcam == null) return;
-
         var t = FindPlayerTransform();
         if (t != null)
         {
             cachedTarget = t;
-            vcam.Follow = cachedTarget;
-            vcam.LookAt = cachedTarget;
-            ApplyFollowRig();
+            targetRb = cachedTarget.GetComponentInChildren<Rigidbody>();
+            // Snap
+            ComputeDesired(out var dPos, out var dRot, 0f);
+            currentPos = dPos; currentRot = dRot;
+            transform.SetPositionAndRotation(currentPos, currentRot);
         }
         else
         {
-            // Bulunamadıysa referansları temizle (opsiyonel)
-            vcam.Follow = null;
-            vcam.LookAt = null;
+            targetRb = null;
         }
     }
 
     private float ReadLensFov()
     {
-        if (vcam != null)
-        {
-            return vcam.m_Lens.FieldOfView;
-        }
-        var cam = Camera.main;
-        return cam ? cam.fieldOfView : 60f;
+        var c = cam ? cam : Camera.main;
+        return c ? c.fieldOfView : 60f;
     }
 
     private void ApplyFov(float fov)
     {
-        if (vcam != null)
-        {
-            var lens = vcam.m_Lens;
-            lens.FieldOfView = fov;
-            vcam.m_Lens = lens;
-        }
-        else
-        {
-            var cam = Camera.main;
-            if (cam) cam.fieldOfView = fov;
-        }
+        if (cam == null) cam = Camera.main;
+        if (cam) cam.fieldOfView = fov;
     }
 
     private void OnValidate()
     {
         if (nitroFov < 1f) nitroFov = 1f;
         if (fovSmooth < 0.1f) fovSmooth = 0.1f;
+        if (followDistance < 0f) followDistance = 0f;
     }
 
-    private void ApplyFollowRig()
+    private void ComputeDesired(out Vector3 desiredPos, out Quaternion desiredRot, float dt)
     {
-        if (vcam == null) return;
+        // Hedef local ofset (arkadan takip): (lateral, height, -distance)
+        Vector3 localOffset = new Vector3(lateralOffset, heightOffset, -Mathf.Abs(followDistance));
+        Vector3 tgtPos = cachedTarget.position;
+        Quaternion tgtRot = cachedTarget.rotation;
+        Vector3 worldOffset = tgtRot * localOffset;
 
-        // Önce mevcut Transposer var mı bak
-        var transposer = vcam.GetCinemachineComponent<CinemachineTransposer>();
-        if (transposer == null)
+        // Dünyanın up'ı ile bağla (Lock To Target With World Up)
+        desiredPos = tgtPos + worldOffset;
+
+        // Look-at hedefi: hedef + hızdan ileri bakış
+        Vector3 lookAt = tgtPos;
+        if (targetRb != null && lookAheadByVelocity > 0f)
         {
-            // Varsa 3rdPersonFollow’u kullan, yoksa Transposer ekle
-            var tpf = vcam.GetCinemachineComponent<Cinemachine3rdPersonFollow>();
-            if (tpf != null)
-            {
-                // 3rdPersonFollow için temel ayarlar
-                tpf.CameraDistance = Mathf.Max(0.01f, followDistance);
-                // ShoulderOffset.x = lateral, .y ~ yükseklik tadında; dikey için VerticalArmLength kullanılır
-                tpf.ShoulderOffset = new Vector3(lateralOffset, 0f, 0f);
-                tpf.VerticalArmLength = heightOffset;
-                // tpf.CameraSide 0.5 merkez; 0 sol, 1 sağ; lateralOffset ile birlikte ayarlanabilir
-                // Ağ ortamında daha az gecikme için yumuşatmaları azalt
-                tpf.Damping.y = Mathf.Max(0f, tpf.Damping.y * 0.5f);
-                tpf.Damping.z = Mathf.Max(0f, tpf.Damping.z * 0.5f);
-                return;
-            }
-
-            transposer = vcam.AddCinemachineComponent<CinemachineTransposer>();
+            lookAt += targetRb.velocity.normalized * lookAheadByVelocity;
         }
-
-        if (transposer != null)
-        {
-            transposer.m_BindingMode = bindingMode;
-            // Arkadan takip için -Z ekseninde mesafe
-            var offset = new Vector3(lateralOffset, heightOffset, -Mathf.Abs(followDistance));
-            transposer.m_FollowOffset = offset;
-            // Ağ ortamında lag hissini azaltmak için damping’i hafiflet
-            transposer.m_XDamping *= 0.5f;
-            transposer.m_YDamping *= 0.5f;
-            transposer.m_ZDamping *= 0.5f;
-        }
+        Vector3 fwd = (lookAt - desiredPos);
+        if (fwd.sqrMagnitude < 0.0001f) fwd = cachedTarget.forward;
+        desiredRot = Quaternion.LookRotation(fwd.normalized, Vector3.up);
     }
 
     private Transform FindPlayerTransform()
@@ -224,13 +245,9 @@ public class FollowPlayer : MonoBehaviour
         {
             try
             {
-                var goByTag = GameObject.FindGameObjectWithTag("Player");
-                if (goByTag != null)
-                {
-                    // Parça değil, kök (root) objeyi hedef al
-                    var root = goByTag.transform.root;
-                    return root != null ? root : goByTag.transform;
-                }
+                var allByTag = GameObject.FindGameObjectsWithTag("Player");
+                Transform chosen = ChooseBestTarget(allByTag);
+                if (chosen != null) return chosen;
             }
             catch (System.Exception)
             {
@@ -238,5 +255,25 @@ public class FollowPlayer : MonoBehaviour
             }
         }
         return null;
+    }
+
+    private Transform ChooseBestTarget(GameObject[] candidates)
+    {
+        if (candidates == null || candidates.Length == 0) return null;
+        Transform mine = null;
+        foreach (var go in candidates)
+        {
+            if (go == null) continue;
+            var pv = go.GetComponentInParent<PhotonView>();
+            if (pv != null && pv.IsMine)
+            {
+                mine = go.transform.root;
+                break;
+            }
+        }
+        if (requireIsMine) return mine;
+        if (preferLocalPhotonView && mine != null) return mine;
+        // Aksi halde ilkini kullan
+        return candidates[0] ? candidates[0].transform.root : null;
     }
 }

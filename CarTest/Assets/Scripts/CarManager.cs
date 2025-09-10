@@ -366,6 +366,11 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [Tooltip("Extrapolasyon limiti (s). Kısa kopmalarda hafif tahmin için.")]
     [SerializeField] private float extrapolationLimit = 0.08f;
 
+    [Tooltip("Sahnede varsa PhotonNetworkConfigurator değerlerini kullan")]
+    [SerializeField] private bool useGlobalPhotonConfigurator = true;
+    [Tooltip("Opsiyonel: Elle atanmış configurator (boşsa otomatik bulunur)")]
+    [SerializeField] private PhotonNetworkConfigurator photonConfigurator;
+
     [Header("Network Smoothing")]
     [Tooltip("Uzak (non-authority) objede hareketi yumuşat.")]
     [SerializeField] private bool smoothRemoteMotion = true;
@@ -404,7 +409,10 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         public Vector3 angVel;
     }
     private readonly List<NetState> stateBuffer = new List<NetState>(32);
-    private const int MaxBufferedStates = 20;
+    [Header("Network Buffer")]
+    [Tooltip("İnterpolasyon için tutulacak maksimum state sayısı.")]
+    [Min(4)]
+    [SerializeField] private int maxBufferedStates = 20;
     private float recvSteerFLTarget;
     private float recvSteerFRTarget;
     // Client görüntü tarafı için tahmini hız (UI/tilt)
@@ -462,9 +470,27 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
     private void Awake()
     {
-    // Photon send/serialize rate ayarla (bağlı olmasa bile set edilebilir)
-    PhotonNetwork.SendRate = Mathf.Clamp(photonSendRate, 10, 120);
-    PhotonNetwork.SerializationRate = Mathf.Clamp(photonSerializationRate, 5, 60);
+    // Photon send/serialize rate ayarla (Configurator varsa ondan çek)
+    if (useGlobalPhotonConfigurator)
+    {
+        if (photonConfigurator == null)
+            photonConfigurator = FindObjectOfType<PhotonNetworkConfigurator>(true);
+        if (photonConfigurator != null)
+        {
+            PhotonNetwork.SendRate = Mathf.Clamp(photonConfigurator.SendRate, 10, 120);
+            PhotonNetwork.SerializationRate = Mathf.Clamp(photonConfigurator.SerializationRate, 5, 120);
+        }
+        else
+        {
+            PhotonNetwork.SendRate = Mathf.Clamp(photonSendRate, 10, 120);
+            PhotonNetwork.SerializationRate = Mathf.Clamp(photonSerializationRate, 5, 120);
+        }
+    }
+    else
+    {
+        PhotonNetwork.SendRate = Mathf.Clamp(photonSendRate, 10, 120);
+        PhotonNetwork.SerializationRate = Mathf.Clamp(photonSerializationRate, 5, 120);
+    }
         rb = GetComponent<Rigidbody>();
         if (rb == null)
         {
@@ -1055,9 +1081,22 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                 angVel = angVel
             };
             stateBuffer.Add(st);
-            if (stateBuffer.Count > MaxBufferedStates)
+            if (stateBuffer.Count > maxBufferedStates)
                 stateBuffer.RemoveAt(0);
         }
+    }
+
+    public override void OnEnable()
+    {
+        base.OnEnable();
+        // Eski kayıtlar nedeniyle sıçramayı önle
+        stateBuffer.Clear();
+    }
+
+    public override void OnDisable()
+    {
+        base.OnDisable();
+        stateBuffer.Clear();
     }
 
     private void InterpolateRemoteTransform()
