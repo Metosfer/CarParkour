@@ -372,15 +372,15 @@ MonoBehaviour:
   masterControlsRight: 1
   netSendMinDelta: 1
   netSendInterval: 0.01
-  photonSendRate: 50
-  photonSerializationRate: 25
-  interpolationBackTime: 0.1
-  extrapolationLimit: 0.03
+  photonSendRate: 60
+  photonSerializationRate: 60
+  interpolationBackTime: 0.12
+  extrapolationLimit: 0.032
   smoothRemoteMotion: 1
   dynamicInterpolationBackTime: 1
-  interpolationBackTimeBase: 0.2
+  interpolationBackTimeBase: 0.16
   interpolationBackPingFactor: 0.2
-  interpolationJitterBuffer: 0.03
+  interpolationJitterBuffer: 0.032
   clientLerpPosRate: 20
   clientSlerpRotRate: 20
   clientMaxSnapDistance: 4
@@ -445,7 +445,7 @@ MonoBehaviour:
   ObservedComponentsFoldoutOpen: 1
   Group: 0
   prefixField: -1
-  Synchronization: 1
+  Synchronization: 3
   OwnershipTransfer: 0
   observableSearch: 2
   ObservedComponents:
