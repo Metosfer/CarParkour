@@ -323,13 +323,13 @@ WheelCollider:
     m_ExtremumValue: 1
     m_AsymptoteSlip: 0.8
     m_AsymptoteValue: 0.5
-    m_Stiffness: 1
+    m_Stiffness: 5.159782
   m_SidewaysFriction:
     m_ExtremumSlip: 0.2
     m_ExtremumValue: 1
     m_AsymptoteSlip: 0.5
     m_AsymptoteValue: 0.75
-    m_Stiffness: 1
+    m_Stiffness: 10
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -662,13 +662,13 @@ WheelCollider:
     m_ExtremumValue: 1
     m_AsymptoteSlip: 0.8
     m_AsymptoteValue: 0.5
-    m_Stiffness: 1
+    m_Stiffness: 5.159782
   m_SidewaysFriction:
     m_ExtremumSlip: 0.2
     m_ExtremumValue: 1
     m_AsymptoteSlip: 0.5
     m_AsymptoteValue: 0.75
-    m_Stiffness: 1
+    m_Stiffness: 10
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1391,6 +1391,8 @@ MonoBehaviour:
   lateralRollPerMS: 1.51
   steerRollDeg: 4
   tiltSmooth: 8
+  autoBindBodyVisual: 1
+  bodyVisualSearchNames: Body,CarBody,Mesh,Chassis
   massKg: 2000
   overrideCenterOfMass: 1
   centerOfMassOffset: {x: 0, y: -0.4, z: 0}
@@ -1426,6 +1428,7 @@ MonoBehaviour:
   reverseTorqueMultiplier: 1.2
   reverseEnableSpeedThreshold: 1
   arcadeReverseUseSameMode: 1
+  reverseArcadeMode: 2
   reverseExtraAcceleration: 35
   reverseSnapPerSecond: 60
   reverseFullThrottleUntilPercent: 0.94
@@ -1446,6 +1449,29 @@ MonoBehaviour:
   yawAssist: 1
   yawAssistStrength: 10.4
   yawAssistMaxAtKmh: 60
+  enhancedArcadeHandling: 1
+  lateralVelDampingPerSec: 8
+  boostWheelFriction: 1
+  forwardFrictionStiffness: 1.2
+  sidewaysFrictionStiffness: 2.2
+  yawAssistArcadeMultiplier: 1.4
+  nitroExhaustLeft: {fileID: 0}
+  nitroExhaustRight: {fileID: 0}
+  nitroVfxLeft: {fileID: 0}
+  nitroVfxRight: {fileID: 0}
+  nitroVfxPrefab: {fileID: 0}
+  autoInstantiateVfx: 1
+  enforceNitroVfxParenting: 1
+  forceNitroLocalSimulation: 1
+  resetNitroOnEnable: 1
+  defaultExhaustLeft: {fileID: 0}
+  defaultExhaustRight: {fileID: 0}
+  manageDefaultExhaust: 1
+  defaultExhaustMode: 0
+  defaultExhaustDimAlpha: 0.35
+  smoothStopAndClear: 1
+  stopClearFadeDuration: 0.12
+  defaultExhaustDimEmissionFactor: 0.3
   enableCoopNetwork: 1
   masterControlsRight: 1
   netSendMinDelta: 1
@@ -1454,6 +1480,18 @@ MonoBehaviour:
   photonSerializationRate: 15
   interpolationBackTime: 0.1
   extrapolationLimit: 0.05
+  preserveWheelVisualRotation: 1
+  drawCenterOfMassGizmo: 1
+  comGizmoColor: {r: 1, g: 0.5, b: 0, a: 0.9}
+  comGizmoRadius: 0.12
+  drawComAxes: 1
+  comAxisLength: 0.6
+  drawLineFromOrigin: 1
+  drawExhaustGizmos: 1
+  exhaustGizmoRadius: 0.06
+  exhaustGizmoDirLen: 0.25
+  exhaustLeftColor: {r: 0, g: 1, b: 1, a: 0.9}
+  exhaustRightColor: {r: 1, g: 0, b: 1, a: 0.9}
   autoBindUI: 1
   speedTextObjectName: Speed
   nitroSliderObjectName: Nitro
@@ -1633,13 +1671,13 @@ WheelCollider:
     m_ExtremumValue: 1
     m_AsymptoteSlip: 0.8
     m_AsymptoteValue: 0.5
-    m_Stiffness: 1
+    m_Stiffness: 5.159782
   m_SidewaysFriction:
     m_ExtremumSlip: 0.2
     m_ExtremumValue: 1
     m_AsymptoteSlip: 0.5
     m_AsymptoteValue: 0.75
-    m_Stiffness: 1
+    m_Stiffness: 10
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -2796,13 +2834,13 @@ WheelCollider:
     m_ExtremumValue: 1
     m_AsymptoteSlip: 0.8
     m_AsymptoteValue: 0.5
-    m_Stiffness: 1
+    m_Stiffness: 5.159782
   m_SidewaysFriction:
     m_ExtremumSlip: 0.2
     m_ExtremumValue: 1
     m_AsymptoteSlip: 0.5
     m_AsymptoteValue: 0.75
-    m_Stiffness: 1
+    m_Stiffness: 10
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0

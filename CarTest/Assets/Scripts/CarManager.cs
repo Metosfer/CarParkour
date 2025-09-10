@@ -279,6 +279,19 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     // Remote client cache (two-player kurgusu için)
     private int cachedRemoteClientActor = -1;
 
+    [Header("Nitro Reset / Respawn")]
+    [Tooltip("Obje yeniden etkinleştiğinde (respawn) nitro VFX pozları varsayılanına dönsün")] 
+    [SerializeField] private bool resetNitroOnEnable = true;
+    // Default local poses for reset
+    private Vector3 exhaustLeftDefLocalPos;
+    private Quaternion exhaustLeftDefLocalRot;
+    private Vector3 exhaustRightDefLocalPos;
+    private Quaternion exhaustRightDefLocalRot;
+    private Vector3 vfxLeftDefLocalPos;
+    private Quaternion vfxLeftDefLocalRot;
+    private Vector3 vfxRightDefLocalPos;
+    private Quaternion vfxRightDefLocalRot;
+
     [Header("Default Exhaust VFX")]
     [Tooltip("Sol default egzoz ParticleSystem (nitro yokken açık)")]
     [SerializeField] private ParticleSystem defaultExhaustLeft;
@@ -468,6 +481,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     // VFX otomatik instantiate
     TrySetupNitroVfx();
     EnsureNitroVfxParentingAndConfig();
+    CacheNitroVfxDefaults();
 
     // Default egzoz başlangıç durumunu algıla
     if (defaultExhaustLeft) prevDefaultLeftOn = defaultExhaustLeft.isPlaying;
@@ -481,6 +495,15 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         if (enhancedArcadeHandling && boostWheelFriction)
         {
             ApplyWheelFrictionBoostAll();
+        }
+    }
+
+    public override void OnEnable()
+    {
+        base.OnEnable();
+        if (resetNitroOnEnable)
+        {
+            ResetNitroVfxToDefaults(stopAndRestore:true);
         }
     }
 
@@ -1701,8 +1724,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             if (enforceNitroVfxParenting && t.parent != nitroExhaustLeft)
             {
                 t.SetParent(nitroExhaustLeft, true);
-                t.localPosition = Vector3.zero;
-                t.localRotation = Quaternion.identity;
+                // Dünya pozunu koru; default snapshot ayrı alınacak
             }
             if (forceNitroLocalSimulation)
             {
@@ -1716,13 +1738,78 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             if (enforceNitroVfxParenting && t.parent != nitroExhaustRight)
             {
                 t.SetParent(nitroExhaustRight, true);
-                t.localPosition = Vector3.zero;
-                t.localRotation = Quaternion.identity;
+                // Dünya pozunu koru; default snapshot ayrı alınacak
             }
             if (forceNitroLocalSimulation)
             {
                 var main = nitroVfxRight.main; main.simulationSpace = ParticleSystemSimulationSpace.Local;
             }
+        }
+    }
+
+    private void CacheNitroVfxDefaults()
+    {
+        if (nitroExhaustLeft)
+        {
+            exhaustLeftDefLocalPos = nitroExhaustLeft.localPosition;
+            exhaustLeftDefLocalRot = nitroExhaustLeft.localRotation;
+        }
+        if (nitroExhaustRight)
+        {
+            exhaustRightDefLocalPos = nitroExhaustRight.localPosition;
+            exhaustRightDefLocalRot = nitroExhaustRight.localRotation;
+        }
+        if (nitroVfxLeft)
+        {
+            var t = nitroVfxLeft.transform;
+            vfxLeftDefLocalPos = t.localPosition;
+            vfxLeftDefLocalRot = t.localRotation;
+        }
+        if (nitroVfxRight)
+        {
+            var t = nitroVfxRight.transform;
+            vfxRightDefLocalPos = t.localPosition;
+            vfxRightDefLocalRot = t.localRotation;
+        }
+    }
+
+    public void ResetNitroVfxToDefaults(bool stopAndRestore)
+    {
+        // Exhaust transformları
+        if (nitroExhaustLeft)
+        {
+            nitroExhaustLeft.localPosition = exhaustLeftDefLocalPos;
+            nitroExhaustLeft.localRotation = exhaustLeftDefLocalRot;
+        }
+        if (nitroExhaustRight)
+        {
+            nitroExhaustRight.localPosition = exhaustRightDefLocalPos;
+            nitroExhaustRight.localRotation = exhaustRightDefLocalRot;
+        }
+        // VFX child'ları
+        if (nitroVfxLeft)
+        {
+            var t = nitroVfxLeft.transform;
+            t.localPosition = vfxLeftDefLocalPos;
+            t.localRotation = vfxLeftDefLocalRot;
+            if (stopAndRestore) nitroVfxLeft.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+        if (nitroVfxRight)
+        {
+            var t = nitroVfxRight.transform;
+            t.localPosition = vfxRightDefLocalPos;
+            t.localRotation = vfxRightDefLocalRot;
+            if (stopAndRestore) nitroVfxRight.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+
+        // Default egzozu da eski haline döndür
+        if (stopAndRestore)
+        {
+            RestoreDefaultExhaustAlpha();
+            if (defaultExhaustLeft) SafePlay(defaultExhaustLeft);
+            if (defaultExhaustRight) SafePlay(defaultExhaustRight);
+            prevVfxLeftActive = false;
+            prevVfxRightActive = false;
         }
     }
 
