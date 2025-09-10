@@ -8,7 +8,7 @@ public class Bounce : MonoBehaviour
 	public float stunTime = 0.5f;
 	private Vector3 hitDir;
 
-	void OnCollisionEnter(Collision collision)
+	/*void OnCollisionEnter(Collision collision)
 	{
 		foreach (ContactPoint contact in collision.contacts)
 		{
@@ -20,6 +20,7 @@ public class Bounce : MonoBehaviour
 				return;
 			}
 		}
+		*/
 		/*if (collision.relativeVelocity.magnitude > 2)
 		{
 			if (collision.gameObject.tag == "Player")
@@ -29,5 +30,4 @@ public class Bounce : MonoBehaviour
 			}
 			//audioSource.Play();
 		}*/
-	}
 }

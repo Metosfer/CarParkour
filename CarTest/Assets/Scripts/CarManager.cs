@@ -48,6 +48,12 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [Min(0.1f)]
     [SerializeField] private float tiltSmooth = 8f;
 
+    [Header("Body Tilt Auto-Bind")]
+    [Tooltip("Body Visual atanmamışsa otomatik bulmayı dene (mesh içeren child).")]
+    [SerializeField] private bool autoBindBodyVisual = true;
+    [Tooltip("İsimle arama için adaylar (virgülle ayrılmış). Örn: Body,CarBody,Mesh,Chassis")]
+    [SerializeField] private string bodyVisualSearchNames = "Body,CarBody,Mesh,Chassis";
+
     [Header("Fizik Ayarları")]
     [Tooltip("Rigidbody kütlesi (kg). Daha ağır araç için artırın.")]
     [Min(1f)]
@@ -137,7 +143,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private bool autoReverseOnToeIn = true;
     [Tooltip("Otomatik geri hedef hızı (km/s).")]
     [Min(0f)]
-    [SerializeField] private float reverseTargetSpeedKmh = 10f;
+    [SerializeField] private float reverseTargetSpeedKmh = 20f;
     [Tooltip("Geri giderken motor torku çarpanı.")]
     [Min(1f)]
     [SerializeField] private float reverseTorqueMultiplier = 1.2f;
@@ -146,6 +152,8 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private float reverseEnableSpeedThreshold = 1f;
     [Tooltip("Geri hızlanmada da arcade yöntemlerini kullan (Torque/ForceBoost/VelocitySnap).")]
     [SerializeField] private bool arcadeReverseUseSameMode = true;
+    [Tooltip("Ayrı bir geri hızlanma modu kullan (arcadeReverseUseSameMode=false iken geçerli).")]
+    [SerializeField] private ArcadeAccelMode reverseArcadeMode = ArcadeAccelMode.VelocitySnap;
     [Tooltip("Geri yönde ekstra ivme (m/sn²). ForceBoost için kullanılır.")]
     [Min(0f)]
     [SerializeField] private float reverseExtraAcceleration = 35f;
@@ -205,6 +213,24 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [Min(5f)]
     [SerializeField] private float yawAssistMaxAtKmh = 60f;
 
+    [Header("Arcade Handling + Grip")]
+    [Tooltip("Arcade sürüş için ek tutuş ve yönlenme yardımcılarını etkinleştirir.")]
+    [SerializeField] private bool enhancedArcadeHandling = true;
+    [Tooltip("Yan kaymayı azaltmak için yanal hızı saniyede kaç m/sn düşüreceği.")]
+    [Min(0f)]
+    [SerializeField] private float lateralVelDampingPerSec = 8f;
+    [Tooltip("Tekerlek sürtünmesi (WheelCollider) stiffness artırımı uygula.")]
+    [SerializeField] private bool boostWheelFriction = true;
+    [Tooltip("İleri (longitudinal) friction stiffness çarpanı.")]
+    [Min(0.1f)]
+    [SerializeField] private float forwardFrictionStiffness = 1.2f;
+    [Tooltip("Yanal (lateral) friction stiffness çarpanı.")]
+    [Min(0.1f)]
+    [SerializeField] private float sidewaysFrictionStiffness = 2.2f;
+    [Tooltip("YawAssist etkisine ek arcade çarpanı.")]
+    [Min(0.1f)]
+    [SerializeField] private float yawAssistArcadeMultiplier = 1.4f;
+
     private Rigidbody rb;
 
     // Per-wheel current steer angles (degrees)
@@ -243,6 +269,10 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private GameObject nitroVfxPrefab;
     [Tooltip("Prefab atanmışsa ve VFX alanı boşsa otomatik oluştur.")]
     [SerializeField] private bool autoInstantiateVfx = true;
+    [Tooltip("Nitro VFX'lerini egzoz Transform'una otomatik bağla (ebeveyn yap)")]
+    [SerializeField] private bool enforceNitroVfxParenting = true;
+    [Tooltip("Nitro VFX'lerinin simulation space'ini Local yap (dönüşlerde kaynak noktayı takip etsin)")]
+    [SerializeField] private bool forceNitroLocalSimulation = true;
     private bool prevVfxLeftActive;
     private bool prevVfxRightActive;
 
@@ -254,10 +284,32 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private ParticleSystem defaultExhaustLeft;
     [Tooltip("Sağ default egzoz ParticleSystem (nitro yokken açık)")]
     [SerializeField] private ParticleSystem defaultExhaustRight;
-    [Tooltip("Default egzozu otomatik yönet (nitro sırasında kapat, bitince aç)")]
+    [Tooltip("Default egzozu otomatik yönet (nitro sırasında kapat veya şeffaflaştır)")]
     [SerializeField] private bool manageDefaultExhaust = true;
+    private enum DefaultExhaustMode { StopAndClear, DimAlpha }
+    [Tooltip("Nitro sırasında default egzoz davranışı: Tam kapat veya saydamlaştır")]
+    [SerializeField] private DefaultExhaustMode defaultExhaustMode = DefaultExhaustMode.StopAndClear;
+    [Range(0f,1f)]
+    [Tooltip("DimAlpha modunda hedef alfa (0=tam şeffaf, 1=opak)")]
+    [SerializeField] private float defaultExhaustDimAlpha = 0.35f; // ~%65 azaltma
+    [Header("Stop&Clear Smooth")]    
+    [Tooltip("Stop&Clear modunda kısa bir fade ile yumuşat")] 
+    [SerializeField] private bool smoothStopAndClear = true;
+    [Tooltip("Stop&Clear fade süresi (s)")] 
+    [Min(0f)]
+    [SerializeField] private float stopClearFadeDuration = 0.12f;
     private bool prevDefaultLeftOn;
     private bool prevDefaultRightOn;
+    // Dim için orijinal PS değerleri
+    private bool leftOrigStartColorCached;
+    private bool rightOrigStartColorCached;
+    private ParticleSystem.MinMaxGradient leftOrigStartColor;
+    private ParticleSystem.MinMaxGradient rightOrigStartColor;
+    private float leftOrigEmissionRate = -1f;
+    private float rightOrigEmissionRate = -1f;
+    [Range(0f,1f)]
+    [Tooltip("DimAlpha modunda Emission şiddet çarpanı (0=kapalı, 1=aynı)")]
+    [SerializeField] private float defaultExhaustDimEmissionFactor = 0.3f;
 
     [Header("Co-op (Photon PUN 2)")]
     [Tooltip("Co-op kontrolünü (her oyuncu bir ön teker) etkinleştirir.")]
@@ -398,6 +450,12 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             }
         }
 
+        // BodyVisual otomatik bulunamadıysa dene
+        if ((bodyVisual == null) && autoBindBodyVisual)
+        {
+            TryAutoBindBodyVisual();
+        }
+
         // Teker görsel offsetlerini hesapla (oyun başındaki mesh rotasyonu korunsun)
         if (preserveWheelVisualRotation)
         {
@@ -409,12 +467,21 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
     // VFX otomatik instantiate
     TrySetupNitroVfx();
+    EnsureNitroVfxParentingAndConfig();
 
     // Default egzoz başlangıç durumunu algıla
     if (defaultExhaustLeft) prevDefaultLeftOn = defaultExhaustLeft.isPlaying;
     if (defaultExhaustRight) prevDefaultRightOn = defaultExhaustRight.isPlaying;
+    // Baseline cache (startColor & emission)
+    CacheDefaultExhaustBaselines();
     // İlk durum güncellemesi
     UpdateDefaultExhaustVfx();
+
+        // Arcade wheel friction boost
+        if (enhancedArcadeHandling && boostWheelFriction)
+        {
+            ApplyWheelFrictionBoostAll();
+        }
     }
 
     private void Update()
@@ -589,8 +656,8 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
             if (arcadeBraking && rb != null)
             {
-                // Ekstra yavaşlatma ivmesi uygula
-                rb.AddForce(-transform.forward * brakeExtraDecel, ForceMode.Acceleration);
+                // Ekstra yavaşlatma ivmesi: mevcut ileri hız yönünün tersine uygula
+                ApplyArcadeExtraBrakeForce();
 
                 // İleri hız bileşenini sıfıra doğru hızla çek
                 var fwd = transform.forward;
@@ -611,10 +678,11 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                 float dz = speedDeadzone;
 
                 bool usedArcade = false;
-                if (arcadeReverseUseSameMode && arcadeAcceleration && targetRev > 0.1f)
+                if (arcadeAcceleration && targetRev > 0.1f)
                 {
                     usedArcade = true;
-                    switch (arcadeAccelMode)
+                    var modeToUse = arcadeReverseUseSameMode ? arcadeAccelMode : reverseArcadeMode;
+                    switch (modeToUse)
                     {
                         case ArcadeAccelMode.Torque:
                         {
@@ -694,7 +762,17 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                 brakeTorque = maxBrakeTorque * (arcadeBraking ? arcadeBrakeMultiplier : 1f);
                 if (arcadeBraking && rb != null)
                 {
-                    rb.AddForce(-transform.forward * brakeExtraDecel, ForceMode.Acceleration);
+                    // Hangi yönde gidiyorsak tersine kuvvet uygula
+                    ApplyArcadeExtraBrakeForce();
+                    // Ters yönde aşırı hızlanmayı engelle (clamp)
+                    float targetRev = Mathf.Max(0f, reverseTargetSpeedKmh) * (1000f / 3600f);
+                    var fwd = transform.forward;
+                    float fs = Vector3.Dot(rb.velocity, fwd);
+                    if (fs < -targetRev)
+                    {
+                        Vector3 lat = rb.velocity - fwd * fs;
+                        rb.velocity = lat + fwd * (-targetRev);
+                    }
                 }
             }
         }
@@ -706,8 +784,8 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
             if (arcadeBraking && rb != null)
             {
-                // Ekstra yavaşlatma
-                rb.AddForce(-transform.forward * brakeExtraDecel, ForceMode.Acceleration);
+                // Ekstra yavaşlatma (mevcut ileri hızın tersi yönünde)
+                ApplyArcadeExtraBrakeForce();
                 var fwd = transform.forward;
                 float fs = Vector3.Dot(rb.velocity, fwd);
                 float delta = snapBrakePerSecond * Time.fixedDeltaTime;
@@ -794,8 +872,24 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             float steerNorm = (Mathf.Abs(maxSteerAngle) > 0.001f) ? Mathf.Clamp(avgSteer / maxSteerAngle, -1f, 1f) : 0f;
             float kmh = rb.velocity.magnitude * 3.6f;
             float speedFac = Mathf.Clamp01(kmh / Mathf.Max(1f, yawAssistMaxAtKmh));
-            float assist = steerNorm * yawAssistStrength * speedFac;
+            float assist = steerNorm * yawAssistStrength * speedFac * (enhancedArcadeHandling ? yawAssistArcadeMultiplier : 1f);
             rb.AddRelativeTorque(new Vector3(0f, assist, 0f), ForceMode.Acceleration);
+        }
+
+        // Lateral kaymayı azalt (arcade his)
+        if (enhancedArcadeHandling && rb != null && lateralVelDampingPerSec > 0f)
+        {
+            var fwd = transform.forward;
+            float fs = Vector3.Dot(rb.velocity, fwd);
+            Vector3 lateral = rb.velocity - fwd * fs;
+            float latMag = lateral.magnitude;
+            if (latMag > 0.0001f)
+            {
+                float reduce = lateralVelDampingPerSec * Time.fixedDeltaTime;
+                float newLatMag = Mathf.Max(0f, latMag - reduce);
+                Vector3 newLateral = lateral * (newLatMag / latMag);
+                rb.velocity = fwd * fs + newLateral;
+            }
         }
 
         // Stabilite yardımcıları
@@ -819,6 +913,16 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             float rollVel = localAV.z;
             rb.AddRelativeTorque(new Vector3(0f, 0f, -rollVel) * rollDamping, ForceMode.Acceleration);
         }
+    }
+
+    private void ApplyArcadeExtraBrakeForce()
+    {
+        if (rb == null) return;
+        var fwd = transform.forward;
+        float fs = Vector3.Dot(rb.velocity, fwd);
+        if (Mathf.Abs(fs) < 0.01f) return;
+        // Mevcut ileri hızın ters yönünde ivme uygula
+        rb.AddForce(-Mathf.Sign(fs) * fwd * brakeExtraDecel, ForceMode.Acceleration);
     }
 
     private void DetermineLocalRole()
@@ -1073,6 +1177,84 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         bodyVisual.localRotation = bodyInitialLocalRot * Quaternion.Euler(0f, 0f, currentRollDeg);
     }
 
+    private void TryAutoBindBodyVisual()
+    {
+        // 1) İsim adaylarıyla ara
+        if (!string.IsNullOrWhiteSpace(bodyVisualSearchNames))
+        {
+            var names = bodyVisualSearchNames.Split(',');
+            for (int i = 0; i < names.Length; i++)
+            {
+                var n = names[i].Trim();
+                if (string.IsNullOrEmpty(n)) continue;
+                var t = FindDeepChild<Transform>(transform, n);
+                if (t != null && t != transform)
+                {
+                    // Mesh içeriyor mu?
+                    if (HasAnyRendererInChildren(t))
+                    {
+                        bodyVisual = t;
+                        bodyInitialLocalRot = bodyVisual.localRotation;
+                        return;
+                    }
+                }
+            }
+        }
+
+        // 2) Fallback: en sığ (shallow) renderer’lı child’ı bul (root hariç)
+        var candidate = FindShallowestRendererRoot(transform);
+        if (candidate != null && candidate != transform)
+        {
+            bodyVisual = candidate;
+            bodyInitialLocalRot = bodyVisual.localRotation;
+        }
+        else
+        {
+            // Bulunamadı, kapat
+            if (enableBodyTilt)
+            {
+                Debug.LogWarning($"[CarManager] BodyVisual bulunamadı. Lütfen 'Body Visual' alanına mesh kökünü atayın.", this);
+            }
+        }
+    }
+
+    private static bool HasAnyRendererInChildren(Transform t)
+    {
+        return t.GetComponentInChildren<MeshRenderer>(true) != null || t.GetComponentInChildren<SkinnedMeshRenderer>(true) != null;
+    }
+
+    private static Transform FindShallowestRendererRoot(Transform root)
+    {
+        Transform best = null;
+        int bestDepth = int.MaxValue;
+        var queue = new Queue<(Transform,int)>();
+        queue.Enqueue((root, 0));
+        while (queue.Count > 0)
+        {
+            var (cur, depth) = queue.Dequeue();
+            if (cur != root)
+            {
+                // Teker/tekerlek adlarını dışla (heuristic)
+                string nm = cur.name.ToLowerInvariant();
+                if (nm.Contains("wheel") || nm.Contains("tyre") || nm.Contains("tire"))
+                {
+                    // skip
+                }
+                else if (HasAnyRendererInChildren(cur))
+                {
+                    if (depth < bestDepth)
+                    {
+                        bestDepth = depth;
+                        best = cur;
+                    }
+                }
+            }
+            for (int i = 0; i < cur.childCount; i++)
+                queue.Enqueue((cur.GetChild(i), depth + 1));
+        }
+        return best;
+    }
+
     private void UpdateSpeedUI(float speedKmh)
     {
         if (!speedText) return;
@@ -1211,7 +1393,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private static void SafeStop(ParticleSystem ps)
     {
         if (!ps) return;
-        if (ps.isPlaying) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+    if (ps.isPlaying) ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
     }
 
     private void UpdateDefaultExhaustVfx()
@@ -1224,15 +1406,323 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         bool desiredLeftOn = !leftNitroActive;
         bool desiredRightOn = !rightNitroActive;
 
-        if (defaultExhaustLeft && desiredLeftOn != prevDefaultLeftOn)
+        switch (defaultExhaustMode)
         {
-            if (desiredLeftOn) SafePlay(defaultExhaustLeft); else SafeStop(defaultExhaustLeft);
-            prevDefaultLeftOn = desiredLeftOn;
+            case DefaultExhaustMode.StopAndClear:
+            {
+                if (defaultExhaustLeft && desiredLeftOn != prevDefaultLeftOn)
+                {
+                    if (smoothStopAndClear && stopClearFadeDuration > 0f)
+                    {
+                        // Fade ile geçiş
+                        StartDefaultExhaustFade(sideLeft:true, fadeIn:desiredLeftOn);
+                    }
+                    else
+                    {
+                        if (desiredLeftOn)
+                        {
+                            RestoreDefaultLeft();
+                            SafePlay(defaultExhaustLeft);
+                        }
+                        else
+                        {
+                            SafeStop(defaultExhaustLeft);
+                        }
+                    }
+                    prevDefaultLeftOn = desiredLeftOn;
+                }
+                if (defaultExhaustRight && desiredRightOn != prevDefaultRightOn)
+                {
+                    if (smoothStopAndClear && stopClearFadeDuration > 0f)
+                    {
+                        StartDefaultExhaustFade(sideLeft:false, fadeIn:desiredRightOn);
+                    }
+                    else
+                    {
+                        if (desiredRightOn)
+                        {
+                            RestoreDefaultRight();
+                            SafePlay(defaultExhaustRight);
+                        }
+                        else
+                        {
+                            SafeStop(defaultExhaustRight);
+                        }
+                    }
+                    prevDefaultRightOn = desiredRightOn;
+                }
+                break;
+            }
+            case DefaultExhaustMode.DimAlpha:
+            {
+                // Yalnızca durum değiştiğinde ayar uygula (flicker engelle)
+                if (defaultExhaustLeft && desiredLeftOn != prevDefaultLeftOn)
+                {
+                    SafePlay(defaultExhaustLeft);
+                    DimDefaultPS(defaultExhaustLeft, sideLeft:true, dim:!desiredLeftOn);
+                    prevDefaultLeftOn = desiredLeftOn;
+                }
+                if (defaultExhaustRight && desiredRightOn != prevDefaultRightOn)
+                {
+                    SafePlay(defaultExhaustRight);
+                    DimDefaultPS(defaultExhaustRight, sideLeft:false, dim:!desiredRightOn);
+                    prevDefaultRightOn = desiredRightOn;
+                }
+                break;
+            }
         }
-        if (defaultExhaustRight && desiredRightOn != prevDefaultRightOn)
+    }
+
+    private void CacheDefaultExhaustBaselines()
+    {
+        if (defaultExhaustLeft)
         {
-            if (desiredRightOn) SafePlay(defaultExhaustRight); else SafeStop(defaultExhaustRight);
-            prevDefaultRightOn = desiredRightOn;
+            var main = defaultExhaustLeft.main;
+            leftOrigStartColor = main.startColor;
+            leftOrigStartColorCached = true;
+            var em = defaultExhaustLeft.emission; leftOrigEmissionRate = GetEmissionRate(em);
+        }
+        if (defaultExhaustRight)
+        {
+            var main = defaultExhaustRight.main;
+            rightOrigStartColor = main.startColor;
+            rightOrigStartColorCached = true;
+            var em = defaultExhaustRight.emission; rightOrigEmissionRate = GetEmissionRate(em);
+        }
+    }
+
+    private void RestoreDefaultExhaustAlpha()
+    {
+        // StopAndClear modunda, dim uygulanmışsa restore
+        if (defaultExhaustLeft && leftOrigStartColorCached && leftOrigEmissionRate >= 0f)
+        {
+            var main = defaultExhaustLeft.main; main.startColor = leftOrigStartColor;
+            var em = defaultExhaustLeft.emission; SetEmissionRate(em, leftOrigEmissionRate);
+        }
+        if (defaultExhaustRight && rightOrigStartColorCached && rightOrigEmissionRate >= 0f)
+        {
+            var main = defaultExhaustRight.main; main.startColor = rightOrigStartColor;
+            var em = defaultExhaustRight.emission; SetEmissionRate(em, rightOrigEmissionRate);
+        }
+    }
+
+    private Coroutine leftDefaultFadeCo;
+    private Coroutine rightDefaultFadeCo;
+
+    private void StartDefaultExhaustFade(bool sideLeft, bool fadeIn)
+    {
+        if (sideLeft)
+        {
+            if (leftDefaultFadeCo != null) StopCoroutine(leftDefaultFadeCo);
+            leftDefaultFadeCo = StartCoroutine(FadeDefaultExhaustCoroutine(defaultExhaustLeft, sideLeft:true, fadeIn:fadeIn, duration:stopClearFadeDuration));
+        }
+        else
+        {
+            if (rightDefaultFadeCo != null) StopCoroutine(rightDefaultFadeCo);
+            rightDefaultFadeCo = StartCoroutine(FadeDefaultExhaustCoroutine(defaultExhaustRight, sideLeft:false, fadeIn:fadeIn, duration:stopClearFadeDuration));
+        }
+    }
+
+    private void RestoreDefaultLeft()
+    {
+        if (!defaultExhaustLeft) return;
+        if (leftOrigStartColorCached)
+        {
+            var main = defaultExhaustLeft.main; main.startColor = leftOrigStartColor;
+        }
+        if (leftOrigEmissionRate >= 0f)
+        {
+            var em = defaultExhaustLeft.emission; SetEmissionRate(em, leftOrigEmissionRate);
+        }
+    }
+
+    private void RestoreDefaultRight()
+    {
+        if (!defaultExhaustRight) return;
+        if (rightOrigStartColorCached)
+        {
+            var main = defaultExhaustRight.main; main.startColor = rightOrigStartColor;
+        }
+        if (rightOrigEmissionRate >= 0f)
+        {
+            var em = defaultExhaustRight.emission; SetEmissionRate(em, rightOrigEmissionRate);
+        }
+    }
+
+    private System.Collections.IEnumerator FadeDefaultExhaustCoroutine(ParticleSystem ps, bool sideLeft, bool fadeIn, float duration)
+    {
+        if (!ps) yield break;
+        // Baseline yoksa al
+        if (sideLeft)
+        {
+            if (!leftOrigStartColorCached || leftOrigEmissionRate < 0f) CacheDefaultExhaustBaselines();
+        }
+        else
+        {
+            if (!rightOrigStartColorCached || rightOrigEmissionRate < 0f) CacheDefaultExhaustBaselines();
+        }
+
+        // Başlangıç
+        SafePlay(ps);
+        float t = 0f;
+        float from = fadeIn ? 0f : 1f;
+        float to = fadeIn ? 1f : 0f;
+        var main = ps.main;
+        var em = ps.emission;
+        float origRate = sideLeft ? leftOrigEmissionRate : rightOrigEmissionRate;
+        var origColor = sideLeft ? leftOrigStartColor : rightOrigStartColor;
+
+        if (duration <= 0f)
+        {
+            // Anında
+            main.startColor = ScaleMinMaxGradientAlpha(origColor, to);
+            SetEmissionRate(em, origRate * to);
+        }
+        else
+        {
+            while (t < duration)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / duration);
+                float f = Mathf.Lerp(from, to, u);
+                main.startColor = ScaleMinMaxGradientAlpha(origColor, f);
+                SetEmissionRate(em, origRate * f);
+                yield return null;
+            }
+        }
+
+        // Bitiş işlemi
+        if (!fadeIn)
+        {
+            SafeStop(ps);
+        }
+        else
+        {
+            // Fade-in tamamlandı, Play açık kalsın
+        }
+    }
+
+    private void DimDefaultPS(ParticleSystem ps, bool sideLeft, bool dim)
+    {
+        var main = ps.main;
+        var em = ps.emission;
+        if (dim)
+        {
+            // Dim: alpha ve emission azalt
+            if (sideLeft)
+            {
+                if (!leftOrigStartColorCached) { leftOrigStartColor = main.startColor; leftOrigStartColorCached = true; }
+                if (leftOrigEmissionRate < 0f) leftOrigEmissionRate = GetEmissionRate(em);
+                main.startColor = ScaleMinMaxGradientAlpha(leftOrigStartColor, defaultExhaustDimAlpha);
+                SetEmissionRate(em, leftOrigEmissionRate * defaultExhaustDimEmissionFactor);
+            }
+            else
+            {
+                if (!rightOrigStartColorCached) { rightOrigStartColor = main.startColor; rightOrigStartColorCached = true; }
+                if (rightOrigEmissionRate < 0f) rightOrigEmissionRate = GetEmissionRate(em);
+                main.startColor = ScaleMinMaxGradientAlpha(rightOrigStartColor, defaultExhaustDimAlpha);
+                SetEmissionRate(em, rightOrigEmissionRate * defaultExhaustDimEmissionFactor);
+            }
+        }
+        else
+        {
+            // Restore
+            if (sideLeft)
+            {
+                if (leftOrigStartColorCached) main.startColor = leftOrigStartColor;
+                if (leftOrigEmissionRate >= 0f) SetEmissionRate(em, leftOrigEmissionRate);
+            }
+            else
+            {
+                if (rightOrigStartColorCached) main.startColor = rightOrigStartColor;
+                if (rightOrigEmissionRate >= 0f) SetEmissionRate(em, rightOrigEmissionRate);
+            }
+        }
+    }
+
+    private static float GetEmissionRate(ParticleSystem.EmissionModule em)
+    {
+        var curve = em.rateOverTime;
+        switch (curve.mode)
+        {
+            case ParticleSystemCurveMode.Constant:
+                return curve.constant;
+            case ParticleSystemCurveMode.TwoConstants:
+                return curve.constantMax;
+            default:
+                // Yaklaşık: eğrinin max değeri
+                return curve.constant;
+        }
+    }
+
+    private static void SetEmissionRate(ParticleSystem.EmissionModule em, float value)
+    {
+        em.rateOverTime = new ParticleSystem.MinMaxCurve(Mathf.Max(0f, value));
+    }
+
+    private static Gradient ScaleGradientAlpha(Gradient g, float factor)
+    {
+        var colKeys = g.colorKeys;
+        var alphaKeys = g.alphaKeys;
+        for (int i = 0; i < alphaKeys.Length; i++)
+        {
+            alphaKeys[i].alpha = Mathf.Clamp01(alphaKeys[i].alpha * factor);
+        }
+        var ng = new Gradient();
+        ng.SetKeys(colKeys, alphaKeys);
+        return ng;
+    }
+
+    private static ParticleSystem.MinMaxGradient ScaleMinMaxGradientAlpha(ParticleSystem.MinMaxGradient mmg, float factor)
+    {
+        switch (mmg.mode)
+        {
+            case ParticleSystemGradientMode.Color:
+                var c = mmg.color; c.a = Mathf.Clamp01(c.a * factor); return new ParticleSystem.MinMaxGradient(c);
+            case ParticleSystemGradientMode.Gradient:
+                return new ParticleSystem.MinMaxGradient(ScaleGradientAlpha(mmg.gradient, factor));
+            case ParticleSystemGradientMode.TwoColors:
+                var cMin = mmg.colorMin; cMin.a = Mathf.Clamp01(cMin.a * factor);
+                var cMax = mmg.colorMax; cMax.a = Mathf.Clamp01(cMax.a * factor);
+                return new ParticleSystem.MinMaxGradient(cMin, cMax);
+            case ParticleSystemGradientMode.TwoGradients:
+                return new ParticleSystem.MinMaxGradient(ScaleGradientAlpha(mmg.gradientMin, factor), ScaleGradientAlpha(mmg.gradientMax, factor));
+            default:
+                return mmg;
+        }
+    }
+
+    private void EnsureNitroVfxParentingAndConfig()
+    {
+        // Sol
+        if (nitroVfxLeft && nitroExhaustLeft)
+        {
+            var t = nitroVfxLeft.transform;
+            if (enforceNitroVfxParenting && t.parent != nitroExhaustLeft)
+            {
+                t.SetParent(nitroExhaustLeft, true);
+                t.localPosition = Vector3.zero;
+                t.localRotation = Quaternion.identity;
+            }
+            if (forceNitroLocalSimulation)
+            {
+                var main = nitroVfxLeft.main; main.simulationSpace = ParticleSystemSimulationSpace.Local;
+            }
+        }
+        // Sağ
+        if (nitroVfxRight && nitroExhaustRight)
+        {
+            var t = nitroVfxRight.transform;
+            if (enforceNitroVfxParenting && t.parent != nitroExhaustRight)
+            {
+                t.SetParent(nitroExhaustRight, true);
+                t.localPosition = Vector3.zero;
+                t.localRotation = Quaternion.identity;
+            }
+            if (forceNitroLocalSimulation)
+            {
+                var main = nitroVfxRight.main; main.simulationSpace = ParticleSystemSimulationSpace.Local;
+            }
         }
     }
 
@@ -1289,6 +1779,35 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     reverseTargetSpeedKmh = Mathf.Max(0f, reverseTargetSpeedKmh);
     if (rb && overrideCenterOfMass) rb.centerOfMass = centerOfMassOffset;
     steerReduceEndKmh = Mathf.Max(steerReduceEndKmh, steerReduceStartKmh + 1f);
+
+    // Uygulanabiliyorsa editörde de friction boost uygula
+    if (boostWheelFriction)
+    {
+        ApplyWheelFrictionBoostAll();
+    }
+    }
+
+    private void ApplyWheelFrictionBoostAll()
+    {
+        ApplyFrictionBoost(frontLeftCollider);
+        ApplyFrictionBoost(frontRightCollider);
+        ApplyFrictionBoost(rearLeftCollider);
+        ApplyFrictionBoost(rearRightCollider);
+    }
+
+    private void ApplyFrictionBoost(WheelCollider wc)
+    {
+        if (wc == null) return;
+        try
+        {
+            var f = wc.forwardFriction;
+            var s = wc.sidewaysFriction;
+            f.stiffness = Mathf.Clamp(f.stiffness * forwardFrictionStiffness, 0.05f, 10f);
+            s.stiffness = Mathf.Clamp(s.stiffness * sidewaysFrictionStiffness, 0.05f, 10f);
+            wc.forwardFriction = f;
+            wc.sidewaysFriction = s;
+        }
+        catch { }
     }
 
     private void OnDrawGizmos()

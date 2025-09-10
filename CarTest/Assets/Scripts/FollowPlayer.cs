@@ -13,6 +13,17 @@ public class FollowPlayer : MonoBehaviour
     [Min(0.05f)]
     [SerializeField] private float checkInterval = 0.5f;
 
+    [Header("Takip Ofseti (Arkadan Takip)")]
+    [Tooltip("Hedefe göre yatay sağ/sol ofset (m)")]
+    [SerializeField] private float lateralOffset = 0f;
+    [Tooltip("Hedefe göre dikey yükseklik (m)")]
+    [SerializeField] private float heightOffset = 2.0f;
+    [Tooltip("Hedefin arkasına olan mesafe (m)")]
+    [Min(0f)]
+    [SerializeField] private float followDistance = 6.0f;
+    [Tooltip("Kamera gövdesi için bağlama modu (Transposer)")]
+    [SerializeField] private CinemachineTransposer.BindingMode bindingMode = CinemachineTransposer.BindingMode.LockToTargetWithWorldUp;
+
     private CinemachineVirtualCamera vcam;
     private Transform cachedTarget;
     private float nextCheckTime;
@@ -57,6 +68,7 @@ public class FollowPlayer : MonoBehaviour
             cachedTarget = t;
             vcam.Follow = cachedTarget;
             vcam.LookAt = cachedTarget;
+            ApplyFollowRig();
         }
         else
         {
@@ -66,13 +78,51 @@ public class FollowPlayer : MonoBehaviour
         }
     }
 
+    private void ApplyFollowRig()
+    {
+        if (vcam == null) return;
+
+        // Önce mevcut Transposer var mı bak
+        var transposer = vcam.GetCinemachineComponent<CinemachineTransposer>();
+        if (transposer == null)
+        {
+            // Varsa 3rdPersonFollow’u kullan, yoksa Transposer ekle
+            var tpf = vcam.GetCinemachineComponent<Cinemachine3rdPersonFollow>();
+            if (tpf != null)
+            {
+                // 3rdPersonFollow için temel ayarlar
+                tpf.CameraDistance = Mathf.Max(0.01f, followDistance);
+                // ShoulderOffset.x = lateral, .y ~ yükseklik tadında; dikey için VerticalArmLength kullanılır
+                tpf.ShoulderOffset = new Vector3(lateralOffset, 0f, 0f);
+                tpf.VerticalArmLength = heightOffset;
+                // tpf.CameraSide 0.5 merkez; 0 sol, 1 sağ; lateralOffset ile birlikte ayarlanabilir
+                return;
+            }
+
+            transposer = vcam.AddCinemachineComponent<CinemachineTransposer>();
+        }
+
+        if (transposer != null)
+        {
+            transposer.m_BindingMode = bindingMode;
+            // Arkadan takip için -Z ekseninde mesafe
+            var offset = new Vector3(lateralOffset, heightOffset, -Mathf.Abs(followDistance));
+            transposer.m_FollowOffset = offset;
+        }
+    }
+
     private Transform FindPlayerTransform()
     {
         // Önce isimle ara
         if (!string.IsNullOrWhiteSpace(playerObjectName))
         {
             var go = GameObject.Find(playerObjectName);
-            if (go != null) return go.transform;
+            if (go != null)
+            {
+                // Çocuk değil en üst parent'i (root) takip et
+                var root = go.transform.root;
+                return root != null ? root : go.transform;
+            }
         }
 
         // Opsiyonel: etikete göre dene
@@ -81,7 +131,12 @@ public class FollowPlayer : MonoBehaviour
             try
             {
                 var goByTag = GameObject.FindGameObjectWithTag("Player");
-                if (goByTag != null) return goByTag.transform;
+                if (goByTag != null)
+                {
+                    // Parça değil, kök (root) objeyi hedef al
+                    var root = goByTag.transform.root;
+                    return root != null ? root : goByTag.transform;
+                }
             }
             catch (System.Exception)
             {

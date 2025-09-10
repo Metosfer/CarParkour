@@ -1650,8 +1650,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 682979235}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.110368975, y: 0, z: 0, w: 0.9938907}
-  m_LocalPosition: {x: 98.53, y: 4.0929956, z: -26.26}
+  m_LocalRotation: {x: 0.11036897, y: 0, z: 0, w: 0.9938907}
+  m_LocalPosition: {x: 98.3, y: 4.05, z: -27.19019}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1882,8 +1882,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 907557584}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.110368975, y: 0, z: 0, w: 0.9938907}
-  m_LocalPosition: {x: 98.53, y: 4.0929956, z: -26.26}
+  m_LocalRotation: {x: 0.11036897, y: 0, z: 0, w: 0.9938907}
+  m_LocalPosition: {x: 98.3, y: 4.05, z: -27.19019}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1905,6 +1905,10 @@ MonoBehaviour:
   playerObjectName: Player
   alsoTryTag: 1
   checkInterval: 0.2
+  lateralOffset: 0
+  heightOffset: 2.55
+  followDistance: 11
+  bindingMode: 1
 --- !u!114 &907557588
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2883,7 +2887,7 @@ Transform:
   m_GameObject: {fileID: 1703648050}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 100.2, y: 0.5, z: -31.690222}
+  m_LocalPosition: {x: 100.2, y: 1.59, z: -22.91}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3028,6 +3032,12 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5263193850122822932, guid: de4e8ae22411dba4f971edf49f8738f2,
     type: 3}
   m_PrefabInstance: {fileID: 1867269606}
+  m_PrefabAsset: {fileID: 0}
+--- !u!198 &1894919608 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 3498952443712518235, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+    type: 3}
+  m_PrefabInstance: {fileID: 589297149621419121}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1966882801
 PrefabInstance:
@@ -3443,6 +3453,12 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!198 &2012023250 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 4698483317930161906, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+    type: 3}
+  m_PrefabInstance: {fileID: 589297149621419121}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &2059472686
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3730,6 +3746,251 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 2137046050}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &589297149621419121
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 708196451783403032, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_Name
+      value: Player
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 98.34
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -15.850188
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1180345617931321825, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1713805347072150790, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_Constraints
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3744736417025523809, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_ForwardFriction.m_Stiffness
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 3744736417025523809, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_SidewaysFriction.m_Stiffness
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: yawAssist
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: maxRollDeg
+      value: 25
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: useAntiRoll
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: useDownforce
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: maxSteerAngle
+      value: 55
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: arcadeSteering
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: enableBodyTilt
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: useRollDamping
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: arcadeAccelMode
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: arcadeSteerBoost
+      value: 1.42
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: driveFrontWheels
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: defaultExhaustLeft
+      value: 
+      objectReference: {fileID: 1894919608}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: defaultExhaustMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: defaultExhaustRight
+      value: 
+      objectReference: {fileID: 2012023250}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: manageDefaultExhaust
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: reverseSnapPerSecond
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: reverseTargetSpeedKmh
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: defaultExhaustDimAlpha
+      value: 0.337
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: useSpeedSensitiveSteer
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: reverseTorqueMultiplier
+      value: 8.42
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: arcadeReverseUseSameMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: sidewaysFrictionStiffness
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: reverseEnableSpeedThreshold
+      value: 1.69
+      objectReference: {fileID: 0}
+    - target: {fileID: 6712317042901860435, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: reverseFullThrottleUntilPercent
+      value: 0.539
+      objectReference: {fileID: 0}
+    - target: {fileID: 7372999225641797370, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: sceneViewId
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 7708994459348364545, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_ForwardFriction.m_Stiffness
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 7708994459348364545, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_SidewaysFriction.m_Stiffness
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 7751141567335818183, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_Constraints
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7763410351302020315, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_ForwardFriction.m_Stiffness
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 7763410351302020315, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_SidewaysFriction.m_Stiffness
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8443308939640895086, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_ForwardFriction.m_Stiffness
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 8443308939640895086, guid: 458f8d60174c04cb89aa63e9e7bc04cf,
+        type: 3}
+      propertyPath: m_SidewaysFriction.m_Stiffness
+      value: 2.5
+      objectReference: {fileID: 0}
+    m_RemovedComponents:
+    - {fileID: 7751141567335818183, guid: 458f8d60174c04cb89aa63e9e7bc04cf, type: 3}
+    - {fileID: 1713805347072150790, guid: 458f8d60174c04cb89aa63e9e7bc04cf, type: 3}
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 458f8d60174c04cb89aa63e9e7bc04cf, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -3743,3 +4004,4 @@ SceneRoots:
   - {fileID: 570224117}
   - {fileID: 1968117181}
   - {fileID: 1703648051}
+  - {fileID: 589297149621419121}
