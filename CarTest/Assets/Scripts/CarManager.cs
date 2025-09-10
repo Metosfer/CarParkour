@@ -217,15 +217,47 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private bool brakingManual;
     private Quaternion bodyInitialLocalRot;
     private float currentRollDeg;
-    private float nitroAmount; // 0..1
+    // Nitro (per-player)
+    private float nitroAmountMaster; // 0..1
+    private float nitroAmountClient; // 0..1
     private float currentTargetSpeedKmh; // smoothed
     private float desiredTargetSpeedKmh; // base veya base+nitro
-    private bool nitroActive;
+    private bool nitroActiveMaster;
+    private bool nitroActiveClient;
     
     // Nitro senkronizasyonu (global kullanım: iki oyuncu da tetikleyebilir)
     private readonly Dictionary<int, bool> remoteNitroRequests = new Dictionary<int, bool>();
     private bool localNitroKey;
     private bool prevLocalNitroKey;
+
+    [Header("Nitro VFX")]
+    [Tooltip("Sol nitro egzoz çıkışı (VFX için konum)")]
+    [SerializeField] private Transform nitroExhaustLeft;
+    [Tooltip("Sağ nitro egzoz çıkışı (VFX için konum)")]
+    [SerializeField] private Transform nitroExhaustRight;
+    [Tooltip("Sol VFX (ParticleSystem). Atanırsa doğrudan Play/Stop yapılır.")]
+    [SerializeField] private ParticleSystem nitroVfxLeft;
+    [Tooltip("Sağ VFX (ParticleSystem). Atanırsa doğrudan Play/Stop yapılır.")]
+    [SerializeField] private ParticleSystem nitroVfxRight;
+    [Tooltip("İsteğe bağlı: VFX prefab. Sol/sağ alanlar boşsa bu prefab egzozların altına instantiate edilir.")]
+    [SerializeField] private GameObject nitroVfxPrefab;
+    [Tooltip("Prefab atanmışsa ve VFX alanı boşsa otomatik oluştur.")]
+    [SerializeField] private bool autoInstantiateVfx = true;
+    private bool prevVfxLeftActive;
+    private bool prevVfxRightActive;
+
+    // Remote client cache (two-player kurgusu için)
+    private int cachedRemoteClientActor = -1;
+
+    [Header("Default Exhaust VFX")]
+    [Tooltip("Sol default egzoz ParticleSystem (nitro yokken açık)")]
+    [SerializeField] private ParticleSystem defaultExhaustLeft;
+    [Tooltip("Sağ default egzoz ParticleSystem (nitro yokken açık)")]
+    [SerializeField] private ParticleSystem defaultExhaustRight;
+    [Tooltip("Default egzozu otomatik yönet (nitro sırasında kapat, bitince aç)")]
+    [SerializeField] private bool manageDefaultExhaust = true;
+    private bool prevDefaultLeftOn;
+    private bool prevDefaultRightOn;
 
     [Header("Co-op (Photon PUN 2)")]
     [Tooltip("Co-op kontrolünü (her oyuncu bir ön teker) etkinleştirir.")]
@@ -299,6 +331,20 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [Tooltip("Araç kökeninden (transform.position) COM'a yardımcı çizgi çiz.")]
     [SerializeField] private bool drawLineFromOrigin = true;
 
+    [Header("Nitro VFX Gizmos")]
+    [Tooltip("Sol/sağ egzoz (nitro VFX) konumlarını sahnede göster.")]
+    [SerializeField] private bool drawExhaustGizmos = true;
+    [Tooltip("Egzoz nokta yarıçapı (m).")]
+    [Min(0.01f)]
+    [SerializeField] private float exhaustGizmoRadius = 0.06f;
+    [Tooltip("Egzoz yön çizgisinin uzunluğu (m).")]
+    [Min(0f)]
+    [SerializeField] private float exhaustGizmoDirLen = 0.25f;
+    [Tooltip("Sol egzoz rengi.")]
+    [SerializeField] private Color exhaustLeftColor = new Color(0f, 1f, 1f, 0.9f); // Cyan
+    [Tooltip("Sağ egzoz rengi.")]
+    [SerializeField] private Color exhaustRightColor = new Color(1f, 0f, 1f, 0.9f); // Magenta
+
     [Header("UI Auto-Bind")]
     [SerializeField] private bool autoBindUI = true;
     [SerializeField] private string speedTextObjectName = "Speed";
@@ -334,7 +380,8 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         {
             bodyInitialLocalRot = bodyVisual.localRotation;
         }
-    nitroAmount = Mathf.Clamp01(nitroStartAmount);
+    nitroAmountMaster = Mathf.Clamp01(nitroStartAmount);
+    nitroAmountClient = Mathf.Clamp01(nitroStartAmount);
     currentTargetSpeedKmh = Mathf.Max(0f, targetSpeedKmh);
     desiredTargetSpeedKmh = currentTargetSpeedKmh;
     }
@@ -359,6 +406,15 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             ComputeWheelRotationOffset(rearLeftCollider, rearLeftVisual, ref rlVisualRotOffset);
             ComputeWheelRotationOffset(rearRightCollider, rearRightVisual, ref rrVisualRotOffset);
         }
+
+    // VFX otomatik instantiate
+    TrySetupNitroVfx();
+
+    // Default egzoz başlangıç durumunu algıla
+    if (defaultExhaustLeft) prevDefaultLeftOn = defaultExhaustLeft.isPlaying;
+    if (defaultExhaustRight) prevDefaultRightOn = defaultExhaustRight.isPlaying;
+    // İlk durum güncellemesi
+    UpdateDefaultExhaustVfx();
     }
 
     private void Update()
@@ -460,7 +516,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     // Manual brake input
     brakingManual = Input.GetKey(manualBrakeKey);
 
-    // Nitro input & senkronizasyon (iki oyuncu da tetikleyebilir)
+    // Nitro input & senkronizasyon (iki oyuncu da ayrı nitro)
     localNitroKey = Input.GetKey(nitroKey);
     if (IsNetworked && !IsAuthority)
     {
@@ -472,9 +528,15 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     }
     if (IsAuthority)
     {
-        bool anyNitro = localNitroKey || AnyRemoteNitro();
-        UpdateNitro(speedKmhNow, anyNitro);
+        // Master ve Client için ayrı bayraklar
+        bool masterReq = localNitroKey;
+        bool clientReq = GetRemoteClientNitroRequest();
+        UpdateNitroAuthority(masterReq, clientReq);
     }
+
+    // VFX durumlarını güncelle (her iki tarafta da çalışır, state ler authority'den okunur)
+    UpdateNitroVfx();
+    UpdateDefaultExhaustVfx();
 
     // UI hız güncelle
     UpdateSpeedUI(speedKmhNow);
@@ -794,7 +856,10 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             stream.SendNext(rb ? rb.angularVelocity : Vector3.zero);
             stream.SendNext(steerAngleFL);
             stream.SendNext(steerAngleFR);
-            stream.SendNext(nitroAmount);
+            stream.SendNext(nitroAmountMaster);
+            stream.SendNext(nitroAmountClient);
+            stream.SendNext(nitroActiveMaster);
+            stream.SendNext(nitroActiveClient);
         }
         else if (stream.IsReading && !IsAuthority)
         {
@@ -804,7 +869,10 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             var angVel = (Vector3)stream.ReceiveNext();
             recvSteerFLTarget = (float)stream.ReceiveNext();
             recvSteerFRTarget = (float)stream.ReceiveNext();
-            nitroAmount = (float)stream.ReceiveNext();
+            nitroAmountMaster = (float)stream.ReceiveNext();
+            nitroAmountClient = (float)stream.ReceiveNext();
+            nitroActiveMaster = (bool)stream.ReceiveNext();
+            nitroActiveClient = (bool)stream.ReceiveNext();
 
             // Buffer'a ekle (zaman damgası ile)
             var st = new NetState
@@ -865,7 +933,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
     private bool HasBoundUI()
     {
-        return (speedText != null) && (nitroSlider != null);
+    return (speedText != null) && (nitroSlider != null);
     }
 
     private void TryAutoBindUI()
@@ -935,6 +1003,14 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     {
         if (remoteNitroRequests.ContainsKey(otherPlayer.ActorNumber))
             remoteNitroRequests.Remove(otherPlayer.ActorNumber);
+        if (cachedRemoteClientActor == otherPlayer.ActorNumber)
+            cachedRemoteClientActor = -1;
+    }
+
+    public override void OnPlayerEnteredRoom(Player newPlayer)
+    {
+        // Reset cache; yeniden bulunur
+        cachedRemoteClientActor = -1;
     }
 
     private void ApplyDriveAndBrakes(float motorTorque, float brakeTorque)
@@ -1004,23 +1080,33 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         speedText.text = string.Format(speedTextFormat, speedKmh);
     }
 
-    private void UpdateNitro(float speedKmh, bool nitroRequested)
+    private void UpdateNitroAuthority(bool masterRequested, bool clientRequested)
     {
         if (!nitroEnabled)
         {
+            nitroActiveMaster = false;
+            nitroActiveClient = false;
             desiredTargetSpeedKmh = targetSpeedKmh;
         }
         else
         {
-            bool canBoost = nitroRequested && nitroAmount > 0.001f;
-            nitroActive = canBoost;
-            desiredTargetSpeedKmh = targetSpeedKmh + (canBoost ? nitroExtraKmh : 0f);
+            // Aktiflik (yeterli yakıt varsa)
+            nitroActiveMaster = masterRequested && nitroAmountMaster > 0.001f;
+            nitroActiveClient = clientRequested && nitroAmountClient > 0.001f;
 
-            // Nitro tüket/doldur
-            if (canBoost)
-                nitroAmount = Mathf.Clamp01(nitroAmount - nitroDrainPerSecond * Time.deltaTime);
+            bool anyBoost = nitroActiveMaster || nitroActiveClient;
+            desiredTargetSpeedKmh = targetSpeedKmh + (anyBoost ? nitroExtraKmh : 0f);
+
+            // Tüketim / Dolum
+            if (nitroActiveMaster)
+                nitroAmountMaster = Mathf.Clamp01(nitroAmountMaster - nitroDrainPerSecond * Time.deltaTime);
             else if (nitroRegenPerSecond > 0f)
-                nitroAmount = Mathf.Clamp01(nitroAmount + nitroRegenPerSecond * Time.deltaTime);
+                nitroAmountMaster = Mathf.Clamp01(nitroAmountMaster + nitroRegenPerSecond * Time.deltaTime);
+
+            if (nitroActiveClient)
+                nitroAmountClient = Mathf.Clamp01(nitroAmountClient - nitroDrainPerSecond * Time.deltaTime);
+            else if (nitroRegenPerSecond > 0f)
+                nitroAmountClient = Mathf.Clamp01(nitroAmountClient + nitroRegenPerSecond * Time.deltaTime);
         }
 
         // Hedef hıza yumuşak yaklaş (km/s)
@@ -1041,7 +1127,113 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         if (!nitroSlider) return;
         nitroSlider.minValue = 0f;
         nitroSlider.maxValue = 1f;
-        nitroSlider.value = nitroAmount;
+        nitroSlider.value = GetLocalNitroAmount();
+    }
+
+    private float GetLocalNitroAmount()
+    {
+        // Ekranda tek bar, ancak herkes kendi nitrosunu görür
+        if (!IsNetworked || PhotonNetwork.IsMasterClient)
+            return nitroAmountMaster;
+        return nitroAmountClient;
+    }
+
+    private bool GetRemoteClientNitroRequest()
+    {
+        // İki oyuncu varsayımı: Local olmayan ilk oyuncu "client" kabul edilir
+        if (!IsNetworked) return false;
+        int remoteActor = GetOrFindRemoteClientActor();
+        if (remoteActor == -1) return false;
+        return remoteNitroRequests.TryGetValue(remoteActor, out bool val) && val;
+    }
+
+    private int GetOrFindRemoteClientActor()
+    {
+        if (cachedRemoteClientActor != -1)
+            return cachedRemoteClientActor;
+        // Bul
+        var others = PhotonNetwork.PlayerListOthers;
+        if (others != null && others.Length > 0)
+        {
+            // İlkini al (iki oyuncu senaryosu)
+            cachedRemoteClientActor = others[0].ActorNumber;
+        }
+        return cachedRemoteClientActor;
+    }
+
+    private void TrySetupNitroVfx()
+    {
+        if (!autoInstantiateVfx || nitroVfxPrefab == null) return;
+        if (nitroVfxLeft == null && nitroExhaustLeft != null)
+        {
+            var go = Instantiate(nitroVfxPrefab, nitroExhaustLeft.position, nitroExhaustLeft.rotation, nitroExhaustLeft);
+            nitroVfxLeft = go.GetComponentInChildren<ParticleSystem>();
+        }
+        if (nitroVfxRight == null && nitroExhaustRight != null)
+        {
+            var go = Instantiate(nitroVfxPrefab, nitroExhaustRight.position, nitroExhaustRight.rotation, nitroExhaustRight);
+            nitroVfxRight = go.GetComponentInChildren<ParticleSystem>();
+        }
+        // Başta kapalı tut
+        if (nitroVfxLeft) nitroVfxLeft.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        if (nitroVfxRight) nitroVfxRight.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        prevVfxLeftActive = false;
+        prevVfxRightActive = false;
+    }
+
+    private void UpdateNitroVfx()
+    {
+        // Kural: Master aktifse SAĞ, Client aktifse SOL egzoz VFX
+        bool rightActive = nitroActiveMaster;
+        bool leftActive = nitroActiveClient;
+
+        if (nitroVfxLeft)
+        {
+            if (leftActive && !prevVfxLeftActive) nitroVfxLeft.Play(true);
+            else if (!leftActive && prevVfxLeftActive) nitroVfxLeft.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        }
+        if (nitroVfxRight)
+        {
+            if (rightActive && !prevVfxRightActive) nitroVfxRight.Play(true);
+            else if (!rightActive && prevVfxRightActive) nitroVfxRight.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        }
+
+        prevVfxLeftActive = leftActive;
+        prevVfxRightActive = rightActive;
+    }
+
+    private static void SafePlay(ParticleSystem ps)
+    {
+        if (!ps) return;
+        if (!ps.isPlaying) ps.Play(true);
+    }
+
+    private static void SafeStop(ParticleSystem ps)
+    {
+        if (!ps) return;
+        if (ps.isPlaying) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+    }
+
+    private void UpdateDefaultExhaustVfx()
+    {
+        if (!manageDefaultExhaust) return;
+
+        bool leftNitroActive = nitroActiveClient;  // client -> sol egzoz nitro
+        bool rightNitroActive = nitroActiveMaster; // master -> sağ egzoz nitro
+
+        bool desiredLeftOn = !leftNitroActive;
+        bool desiredRightOn = !rightNitroActive;
+
+        if (defaultExhaustLeft && desiredLeftOn != prevDefaultLeftOn)
+        {
+            if (desiredLeftOn) SafePlay(defaultExhaustLeft); else SafeStop(defaultExhaustLeft);
+            prevDefaultLeftOn = desiredLeftOn;
+        }
+        if (defaultExhaustRight && desiredRightOn != prevDefaultRightOn)
+        {
+            if (desiredRightOn) SafePlay(defaultExhaustRight); else SafeStop(defaultExhaustRight);
+            prevDefaultRightOn = desiredRightOn;
+        }
     }
 
     private float GetEffectiveMaxSteer(float speedKmh)
@@ -1132,6 +1324,41 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             // Z (mavi)
             Gizmos.color = Color.blue;
             Gizmos.DrawLine(worldCOM, worldCOM + transform.forward * comAxisLength);
+        }
+
+        Gizmos.color = prev;
+
+        // Egzoz VFX noktaları
+        if (drawExhaustGizmos)
+        {
+            DrawExhaustGizmos();
+        }
+    }
+
+    private void DrawExhaustGizmos()
+    {
+        Color prev = Gizmos.color;
+        float r = Mathf.Max(0.005f, exhaustGizmoRadius);
+        float len = Mathf.Max(0f, exhaustGizmoDirLen);
+
+        if (nitroExhaustLeft)
+        {
+            Gizmos.color = exhaustLeftColor;
+            Vector3 p = nitroExhaustLeft.position;
+            Vector3 f = nitroExhaustLeft.forward;
+            Gizmos.DrawSphere(p, r);
+            Gizmos.DrawWireSphere(p, r * 1.5f);
+            Gizmos.DrawLine(p, p + f * len);
+        }
+
+        if (nitroExhaustRight)
+        {
+            Gizmos.color = exhaustRightColor;
+            Vector3 p = nitroExhaustRight.position;
+            Vector3 f = nitroExhaustRight.forward;
+            Gizmos.DrawSphere(p, r);
+            Gizmos.DrawWireSphere(p, r * 1.5f);
+            Gizmos.DrawLine(p, p + f * len);
         }
 
         Gizmos.color = prev;
