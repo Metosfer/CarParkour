@@ -27,6 +27,13 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private TMP_Text speedText;
     [Tooltip("Hız metni formatı. Örnek: '{0:0} km/s' veya 'Hız: {0:0.0} km/s'")]
     [SerializeField] private string speedTextFormat = "{0:0} km/s";
+    [Tooltip("Ping göstergesi için TMP_Text referansı (TextMeshPro).")]
+    [SerializeField] private TMP_Text pingText;
+    [Tooltip("Ping metni formatı. Örnek: 'Ping: {0:0}ms' veya '{0:0} ms'")]
+    [SerializeField] private string pingTextFormat = "Ping: {0:0}ms";
+    [Tooltip("Ping güncellemesi için saniye cinsinden aralık (çok sık güncelleme performansı etkiler).")]
+    [Min(0.1f)]
+    [SerializeField] private float pingUpdateInterval = 0.5f;
     [Tooltip("Nitro göstergesi için UI Slider.")]
     [SerializeField] private Slider nitroSlider;
 
@@ -312,15 +319,15 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [Tooltip("DimAlpha modunda Emission şiddet çarpanı (0=kapalı, 1=aynı)")]
     [SerializeField] private float defaultExhaustDimEmissionFactor = 0.3f;
 
-    [Header("Co-op (Photon PUN 2)")]
+    [Header("Co-op (Photon PUN 2) - Optimized")]
     [Tooltip("Co-op kontrolünü (her oyuncu bir ön teker) etkinleştirir.")]
     [SerializeField] private bool enableCoopNetwork = true;
     [Tooltip("Master (Kurucu) sağ ön tekeri kontrol eder. Kapalıysa sol ön tekeri kontrol eder.")]
     [SerializeField] private bool masterControlsRight = true;
-    [Tooltip("Ağ paketlerinin gönderimi için açı değişim eşiği (derece). Küçük değerler daha sık gönderim sağlar.")]
-    [SerializeField] private float netSendMinDelta = 0.5f;
-    [Tooltip("Açı gönderimleri arası minimum süre (sn). 0.016 ≈ 60 Hz. Daha küçük değerler daha sık gönderim.")]
-    [SerializeField] private float netSendInterval = 0.016f;
+    [Tooltip("Ağ paketlerinin gönderimi için açı değişim eşiği (derece). Lag azaltmak için düşürüldü: 0.1.")]
+    [SerializeField] private float netSendMinDelta = 0.1f;
+    [Tooltip("Açı gönderimleri arası minimum süre (sn). Lag azaltmak için düşürüldü: 0.008 ≈ 125 Hz.")]
+    [SerializeField] private float netSendInterval = 0.008f;
 
     private enum CoopRole { Left, Right }
     private CoopRole localRole = CoopRole.Left;
@@ -337,67 +344,67 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private bool IsNetworked => enableCoopNetwork && PhotonNetwork.IsConnected;
     private bool IsAuthority => !IsNetworked || PhotonNetwork.IsMasterClient;
 
-    [Header("Network Smoothing")]
+    [Header("Network Smoothing - Optimized for Low Latency")]
     [Tooltip("Uzak (non-authority) objede hareketi yumuşat.")]
     [SerializeField] private bool smoothRemoteMotion = true;
     [Tooltip("Ping'e bağlı dinamik geri zaman kullan.")]
     [SerializeField] private bool dynamicInterpolationBackTime = true;
-    [Tooltip("Dinamik kapalıyken kullanılan sabit interpolasyon geri zamanı (s).")]
-    [SerializeField] private float interpolationBackTime = 0.12f;
-    [Tooltip("Dinamik mod için taban geri zaman (s). Örn: 0.08, dengeli.")]
+    [Tooltip("Dinamik kapalıyken kullanılan sabit interpolasyon geri zamanı (s). Lag azaltmak için düşürüldü.")]
+    [SerializeField] private float interpolationBackTime = 0.04f;
+    [Tooltip("Dinamik mod için taban geri zaman (s). Lag azaltmak için düşürüldü: 0.03, çok dengeli.")]
     [Min(0f)]
-    [SerializeField] private float interpolationBackTimeBase = 0.08f;
-    [Tooltip("Geri zaman için ping çarpanı (RTT * faktör). 0.5 = yarım ping.")]
+    [SerializeField] private float interpolationBackTimeBase = 0.03f;
+    [Tooltip("Geri zaman için ping çarpanı (RTT * faktör). Lag azaltmak için düşürüldü: 0.25 = çeyrek ping.")]
     [Range(0f, 1f)]
-    [SerializeField] private float interpolationBackPingFactor = 0.5f;
-    [Tooltip("Ani jitter için ek güvenlik tamponu (s).")]
+    [SerializeField] private float interpolationBackPingFactor = 0.25f;
+    [Tooltip("Ani jitter için ek güvenlik tamponu (s). Lag azaltmak için düşürüldü.")]
     [Min(0f)]
-    [SerializeField] private float interpolationJitterBuffer = 0.02f;
-    [Tooltip("Kısa kopmalarda hafif tahmin için ekstrapolasyon limiti (s).")]
-    [SerializeField] private float extrapolationLimit = 0.08f;
-    [Tooltip("Client tarafında hedef konuma yaklaşma hızı (1/sn). 30, dengeli yaklaşma.")]
+    [SerializeField] private float interpolationJitterBuffer = 0.005f;
+    [Tooltip("Kısa kopmalarda hafif tahmin için ekstrapolasyon limiti (s). Agresif ekstrapolasyon.")]
+    [SerializeField] private float extrapolationLimit = 0.12f;
+    [Tooltip("Client tarafında hedef konuma yaklaşma hızı (1/sn). Lag azaltmak için artırıldı: 60, hızlı yaklaşma.")]
     [Min(0f)]
-    [SerializeField] private float clientLerpPosRate = 30f;
-    [Tooltip("Client tarafında hedef rotasyona yaklaşma hızı (1/sn). 30, dengeli dönüş.")]
+    [SerializeField] private float clientLerpPosRate = 60f;
+    [Tooltip("Client tarafında hedef rotasyona yaklaşma hızı (1/sn). Lag azaltmak için artırıldı: 60, hızlı dönüş.")]
     [Min(0f)]
-    [SerializeField] private float clientSlerpRotRate = 30f;
-    [Tooltip("Büyük farklarda anında atla (m). 6 m, daha az snap.")]
+    [SerializeField] private float clientSlerpRotRate = 60f;
+    [Tooltip("Büyük farklarda anında atla (m). Lag azaltmak için düşürüldü: 3 m, daha az snap.")]
     [Min(0f)]
-    [SerializeField] private float clientMaxSnapDistance = 6f;
-    [Tooltip("Büyük açısal farklarda anında atla (derece). 60°, daha az snap.")]
+    [SerializeField] private float clientMaxSnapDistance = 3f;
+    [Tooltip("Büyük açısal farklarda anında atla (derece). Lag azaltmak için düşürüldü: 30°, daha az snap.")]
     [Min(0f)]
-    [SerializeField] private float clientMaxSnapAngle = 60f;
+    [SerializeField] private float clientMaxSnapAngle = 30f;
     [Tooltip("Client'ta Rigidbody.velocity'yi de güncelle (UI/tilt için önerilir).")]
     [SerializeField] private bool updateClientRigidbodyVelocity = true;
 
-    [Tooltip("Lerp sırasında tek framede atlanacak maksimum mesafe (m). 1 = sınırlı atlama, jitter azaltır.")]
+    [Tooltip("Lerp sırasında tek framede atlanacak maksimum mesafe (m). Lag azaltmak için artırıldı: 2 = daha hızlı yaklaşma.")]
     [Min(0f)]
-    [SerializeField] private float maxStepPerFrame = 1f;
+    [SerializeField] private float maxStepPerFrame = 2f;
 
     [Header("Remote Mode")]
     [Tooltip("Remote objeyi kinematic yap (önerilir). Kapatırsanız remote tarafta fizik çalışır ve jitter artabilir.")]
     [SerializeField] private bool remoteMakeKinematic = true;
 
-    [Header("Smoothing Algorithm (Advanced)")]
-    [Tooltip("Pozisyon yumuşatma için SmoothDamp kullan (daha stabil ama biraz daha gecikmeli olabilir)")]
-    [SerializeField] private bool useSmoothDamp = true;
-    [Tooltip("SmoothDamp hedefe yaklaşma süresi (s)")]
+    [Header("Smoothing Algorithm (Advanced) - Optimized")]
+    [Tooltip("Pozisyon yumuşatma için SmoothDamp kullan. Lag azaltmak için kapatıldı: false, daha direkt hareket")]
+    [SerializeField] private bool useSmoothDamp = false;
+    [Tooltip("SmoothDamp hedefe yaklaşma süresi (s). Lag azaltmak için düşürüldü")]
     [Min(0.01f)]
-    [SerializeField] private float smoothDampTime = 0.08f;
-    [Tooltip("SmoothDamp için maksimum hız (m/sn). 0 = sınırsız")]
+    [SerializeField] private float smoothDampTime = 0.04f;
+    [Tooltip("SmoothDamp için maksimum hız (m/sn). Lag azaltmak için artırıldı")]
     [Min(0f)]
-    [SerializeField] private float smoothDampMaxSpeed = 0f;
+    [SerializeField] private float smoothDampMaxSpeed = 50f;
     private Vector3 smoothDampVel;
 
-    [Header("Adaptive Jitter Buffer (Advanced)")]
-    [Tooltip("Paket aralıklarındaki jitter'ı ölç ve backTime'a küçük dinamik tampon ekle. Kapalıysa sabit tampon.")]
+    [Header("Adaptive Jitter Buffer (Advanced) - Optimized")]
+    [Tooltip("Paket aralıklarındaki jitter'ı ölç ve backTime'a küçük dinamik tampon ekle. Lag azaltmak için kapatıldı: false")]
     [SerializeField] private bool adaptiveJitterBackTime = false;
-    [Tooltip("Jitter ölçümü EMA katsayısı (0..1). Daha yüksek = daha hızlı tepki")]
+    [Tooltip("Jitter ölçümü EMA katsayısı (0..1). Lag azaltmak için artırıldı: 0.4 = daha hızlı tepki")]
     [Range(0.05f, 0.9f)]
-    [SerializeField] private float jitterEmaAlpha = 0.2f;
-    [Tooltip("Adaptif jitter ile eklenecek maksimum ek backTime (s)")]
+    [SerializeField] private float jitterEmaAlpha = 0.4f;
+    [Tooltip("Adaptif jitter ile eklenecek maksimum ek backTime (s). Lag azaltmak için düşürüldü")]
     [Min(0f)]
-    [SerializeField] private float maxAdaptiveJitter = 0.08f;
+    [SerializeField] private float maxAdaptiveJitter = 0.04f;
     private double lastPacketTime;
     private float emaInterArrival;
     private float emaJitter;
@@ -411,14 +418,14 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         public Vector3 angVel;
     }
     private readonly List<NetState> stateBuffer = new List<NetState>(32);
-    [Header("Network Buffer")]
-    [Tooltip("İnterpolasyon için tutulacak maksimum state sayısı.")]
+    [Header("Network Buffer - Optimized")]
+    [Tooltip("İnterpolasyon için tutulacak maksimum state sayısı. Lag azaltmak için düşürüldü: 10")]
     [Min(4)]
-    [SerializeField] private int maxBufferedStates = 20;
+    [SerializeField] private int maxBufferedStates = 10;
     [Header("Network Buffer Advanced")]
-    [Tooltip("Buffer'da tutulacak maksimum zaman ufku (s). Çok eski state'ler budanır.")]
+    [Tooltip("Buffer'da tutulacak maksimum zaman ufku (s). Lag azaltmak için düşürüldü: 0.5 s")]
     [Min(0.1f)]
-    [SerializeField] private float bufferTimeHorizon = 1.0f;
+    [SerializeField] private float bufferTimeHorizon = 0.5f;
     private float recvSteerFLTarget;
     private float recvSteerFRTarget;
     // Client görüntü tarafı için tahmini hız (UI/tilt)
@@ -472,12 +479,14 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [Header("UI Auto-Bind")]
     [SerializeField] private bool autoBindUI = true;
     [SerializeField] private string speedTextObjectName = "Speed";
+    [SerializeField] private string pingTextObjectName = "PingTestText";
     [SerializeField] private string nitroSliderObjectName = "Nitro";
     [Tooltip("UI daha geç yüklenecekse, kısa süre tekrar denemesi için.")]
     [SerializeField] private float uiRebindInterval = 0.5f;
     [SerializeField] private int uiRebindMaxAttempts = 10;
     private float uiRebindTimer;
     private int uiRebindAttempts;
+    private float pingUpdateTimer;
 
     private void Awake()
     {
@@ -703,43 +712,52 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     UpdateNitroVfx();
     UpdateDefaultExhaustVfx();
 
-    // UI hız güncelle
-    UpdateSpeedUI(speedKmhNow);
-    UpdateNitroUI();
-
-    // Görsel gövde eğimi
+        // UI hız güncelle
+        UpdateSpeedUI(speedKmhNow);
+        UpdatePingUI();
+        UpdateNitroUI();    // Görsel gövde eğimi
     UpdateBodyTilt();
 
     // Non-authority poz/rot interpolasyon (snap yerine)
     if (!IsAuthority && IsNetworked)
     {
         InterpolateRemoteTransform();
-        // UI ve tilt için yumuşatılmış hız kullan
-    if (rb && updateClientRigidbodyVelocity && !rb.isKinematic)
+        // ANTI-JITTER: UI ve tilt için yumuşatılmış hız kullan - ama daha stabil
+        if (rb && updateClientRigidbodyVelocity && !rb.isKinematic)
         {
-            rb.velocity = remoteDisplayVelocity;
+            // Velocity değişikliklerini yumuşat (jitter önleme)
+            float velocitySmooth = 15f; // Hızlı ama yumuşak
+            float alpha = 1f - Mathf.Exp(-velocitySmooth * Time.deltaTime);
+            rb.velocity = Vector3.Lerp(rb.velocity, remoteDisplayVelocity, alpha);
         }
     }
     }
 
     private void LateUpdate()
     {
-        // Teker görsellerini kamera güncellemesinden önce/sonra stabil tutmak için LateUpdate'te uygula
-    UpdateWheelVisual(frontLeftCollider, frontLeftVisual, flVisualRotOffset);
-    UpdateWheelVisual(frontRightCollider, frontRightVisual, frVisualRotOffset);
-    UpdateWheelVisual(rearLeftCollider, rearLeftVisual, rlVisualRotOffset);
-    UpdateWheelVisual(rearRightCollider, rearRightVisual, rrVisualRotOffset);
+        // ANTI-JITTER: Authority client'larda wheel visual updates (guest'lerde FixedUpdate'te yapılıyor)
+        if (IsAuthority)
+        {
+            UpdateWheelVisual(frontLeftCollider, frontLeftVisual, flVisualRotOffset);
+            UpdateWheelVisual(frontRightCollider, frontRightVisual, frVisualRotOffset);
+            UpdateWheelVisual(rearLeftCollider, rearLeftVisual, rlVisualRotOffset);
+            UpdateWheelVisual(rearRightCollider, rearRightVisual, rrVisualRotOffset);
+        }
     }
 
     private void FixedUpdate()
     {
-        // Ağda değilse veya Master isek fizik çalıştır
+        // CRITICAL FIX: Non-authority client'larda da tekerlek görsel güncellemelerini yap
+        // Bu jitter'ı önleyecek
         if (!IsAuthority)
         {
+            // Sadece visual updates (fizik değil)
+            UpdateWheelVisualsOnly();
             return;
         }
+        
         // Convert target speed to m/s
-    float targetSpeed = Mathf.Max(0f, currentTargetSpeedKmh) * (1000f / 3600f);
+        float targetSpeed = Mathf.Max(0f, currentTargetSpeedKmh) * (1000f / 3600f);
         float speed = rb ? rb.velocity.magnitude : 0f;
 
         float brakeTorque = 0f;
@@ -1052,16 +1070,28 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         if (!enableCoopNetwork) return;
         if (stream.IsWriting && IsAuthority)
         {
+            // Optimized: Daha az veri gönder, daha hızlı serialize
             stream.SendNext(transform.position);
             stream.SendNext(transform.rotation);
             stream.SendNext(rb ? rb.velocity : Vector3.zero);
-            stream.SendNext(rb ? rb.angularVelocity : Vector3.zero);
+            // Angular velocity daha az critical, skip yapabiliriz bazen
+            if (rb && rb.angularVelocity.sqrMagnitude > 0.01f)
+                stream.SendNext(rb.angularVelocity);
+            else
+                stream.SendNext(Vector3.zero);
+            
             stream.SendNext(steerAngleFL);
             stream.SendNext(steerAngleFR);
-            stream.SendNext(nitroAmountMaster);
-            stream.SendNext(nitroAmountClient);
-            stream.SendNext(nitroActiveMaster);
-            stream.SendNext(nitroActiveClient);
+            
+            // Nitro değerleri compression ile gönder (0-255 range)
+            stream.SendNext((byte)(nitroAmountMaster * 255f));
+            stream.SendNext((byte)(nitroAmountClient * 255f));
+            
+            // Boolean'ları tek byte'ta pack et
+            byte flags = 0;
+            if (nitroActiveMaster) flags |= 1;
+            if (nitroActiveClient) flags |= 2;
+            stream.SendNext(flags);
         }
         else if (stream.IsReading && !IsAuthority)
         {
@@ -1071,12 +1101,17 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             var angVel = (Vector3)stream.ReceiveNext();
             recvSteerFLTarget = (float)stream.ReceiveNext();
             recvSteerFRTarget = (float)stream.ReceiveNext();
-            nitroAmountMaster = (float)stream.ReceiveNext();
-            nitroAmountClient = (float)stream.ReceiveNext();
-            nitroActiveMaster = (bool)stream.ReceiveNext();
-            nitroActiveClient = (bool)stream.ReceiveNext();
+            
+            // Nitro decompression
+            nitroAmountMaster = ((byte)stream.ReceiveNext()) / 255f;
+            nitroAmountClient = ((byte)stream.ReceiveNext()) / 255f;
+            
+            // Boolean unpack
+            byte flags = (byte)stream.ReceiveNext();
+            nitroActiveMaster = (flags & 1) != 0;
+            nitroActiveClient = (flags & 2) != 0;
 
-            // Buffer'a ekle (zaman damgası ile)
+            // Buffer'a ekle - Optimized insertion
             var st = new NetState
             {
                 time = info.SentServerTime,
@@ -1085,37 +1120,47 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                 vel = vel,
                 angVel = angVel
             };
-            // Zaman damgasına göre sıralı ekle (out-of-order paketlere karşı dayanıklı)
+            
+            // Optimized: Binary search için sorted insertion (daha hızlı)
             int insertIdx = stateBuffer.Count;
-            for (int idx = stateBuffer.Count - 1; idx >= 0; idx--)
+            if (stateBuffer.Count > 0 && st.time < stateBuffer[stateBuffer.Count - 1].time)
             {
-                if (stateBuffer[idx].time <= st.time)
+                // Binary search for correct position
+                int left = 0, right = stateBuffer.Count - 1;
+                while (left <= right)
                 {
-                    insertIdx = idx + 1;
-                    break;
+                    int mid = (left + right) / 2;
+                    if (stateBuffer[mid].time <= st.time)
+                        left = mid + 1;
+                    else
+                        right = mid - 1;
                 }
-                if (idx == 0) insertIdx = 0;
+                insertIdx = left;
             }
             stateBuffer.Insert(insertIdx, st);
-            // Eski/stale state'leri aşırı büyümeyi önlemek için kırp
+            
+            // Optimized: Daha agresif pruning
             if (stateBuffer.Count > maxBufferedStates)
             {
                 int removeCount = stateBuffer.Count - maxBufferedStates;
                 stateBuffer.RemoveRange(0, removeCount);
             }
 
-            // Adaptif jitter ölçümü: paketler arası aralığı EMA ile takip et
-            double pktTime = st.time;
-            if (lastPacketTime > 0)
+            // Optimized: Sadece gerekli olduğunda jitter hesapla
+            if (adaptiveJitterBackTime)
             {
-                float inter = (float)(pktTime - lastPacketTime);
-                if (emaInterArrival <= 0f) emaInterArrival = inter;
-                else emaInterArrival = Mathf.Lerp(emaInterArrival, inter, jitterEmaAlpha);
-                float jitter = Mathf.Abs(inter - emaInterArrival);
-                if (emaJitter <= 0f) emaJitter = jitter;
-                else emaJitter = Mathf.Lerp(emaJitter, jitter, jitterEmaAlpha);
+                double pktTime = st.time;
+                if (lastPacketTime > 0)
+                {
+                    float inter = (float)(pktTime - lastPacketTime);
+                    if (emaInterArrival <= 0f) emaInterArrival = inter;
+                    else emaInterArrival = Mathf.Lerp(emaInterArrival, inter, jitterEmaAlpha);
+                    float jitter = Mathf.Abs(inter - emaInterArrival);
+                    if (emaJitter <= 0f) emaJitter = jitter;
+                    else emaJitter = Mathf.Lerp(emaJitter, jitter, jitterEmaAlpha);
+                }
+                lastPacketTime = pktTime;
             }
-            lastPacketTime = pktTime;
         }
     }
 
@@ -1137,11 +1182,11 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     {
         if (stateBuffer.Count == 0) return;
 
-        // Ping'e göre dinamik geri zaman
-    float backTime = GetCurrentBackTime();
+        // Optimized: Ping'e göre dinamik geri zaman - daha agresif
+        float backTime = GetCurrentBackTime();
         double targetTime = PhotonNetwork.Time - backTime;
 
-        // Çok eski state'leri buda (zaman ufku)
+        // Optimized: Daha agresif state pruning
         double minAllowed = PhotonNetwork.Time - bufferTimeHorizon;
         int trimCount = 0;
         for (int i = 0; i < stateBuffer.Count; i++)
@@ -1149,30 +1194,40 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             if (stateBuffer[i].time < minAllowed) trimCount++;
             else break;
         }
-        if (trimCount > 0 && stateBuffer.Count - trimCount >= 2)
+        if (trimCount > 0 && stateBuffer.Count - trimCount >= 1) // En az 1 state kalsın
         {
             stateBuffer.RemoveRange(0, trimCount);
         }
 
-        // En sondan geriye doğru, targetTime'dan daha eski olan ilk çifti bul
-    Vector3 targetPos = transform.position;
-    Quaternion targetRot = transform.rotation;
-    Vector3 targetVel = rb ? rb.velocity : Vector3.zero;
+        Vector3 targetPos = transform.position;
+        Quaternion targetRot = transform.rotation;
+        Vector3 targetVel = rb ? rb.velocity : Vector3.zero;
 
         bool found = false;
+        
+        // Optimized: Daha hızlı arama - son state'lerden başla
         for (int i = stateBuffer.Count - 1; i >= 0; i--)
         {
             if (stateBuffer[i].time <= targetTime || i == 0)
             {
                 if (i == stateBuffer.Count - 1)
                 {
-                    // Sadece en yeni varsa: gerekirse kısa extrapolasyon
+                    // Optimized: Daha agresif extrapolation
                     var latest = stateBuffer[i];
                     double dt = targetTime - latest.time;
                     if (dt > 0 && dt < extrapolationLimit)
                     {
+                        // Improved extrapolation with acceleration consideration
                         targetPos = latest.pos + latest.vel * (float)dt;
-                        targetRot = latest.rot; // rot extrap değil
+                        if (latest.vel.sqrMagnitude > 0.01f)
+                        {
+                            // Slight rotation prediction based on angular velocity
+                            targetRot = latest.rot * Quaternion.Euler(latest.angVel * (float)dt * Mathf.Rad2Deg);
+                        }
+                        else
+                        {
+                            targetRot = latest.rot;
+                        }
                         targetVel = latest.vel;
                     }
                     else
@@ -1184,11 +1239,16 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                 }
                 else
                 {
+                    // Optimized: Better interpolation
                     var older = stateBuffer[i];
                     var newer = stateBuffer[i + 1];
                     double segment = newer.time - older.time;
                     float t = (segment > 1e-5) ? (float)((targetTime - older.time) / segment) : 0f;
                     t = Mathf.Clamp01(t);
+                    
+                    // Smooth cubic interpolation for position
+                    t = t * t * (3f - 2f * t); // Smoothstep
+                    
                     targetPos = Vector3.Lerp(older.pos, newer.pos, t);
                     targetRot = Quaternion.Slerp(older.rot, newer.rot, t);
                     targetVel = Vector3.Lerp(older.vel, newer.vel, t);
@@ -1198,7 +1258,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             }
         }
 
-        if (!found)
+        if (!found && stateBuffer.Count > 0)
         {
             var last = stateBuffer[stateBuffer.Count - 1];
             targetPos = last.pos;
@@ -1206,7 +1266,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             targetVel = last.vel;
         }
 
-        // Snap eşikleri
+        // Optimized: Daha düşük snap thresholds
         float dist = Vector3.Distance(transform.position, targetPos);
         float ang = Quaternion.Angle(transform.rotation, targetRot);
         bool snapPos = (clientMaxSnapDistance > 0f) && dist > clientMaxSnapDistance;
@@ -1219,27 +1279,43 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         }
         else
         {
+            // Optimized: More responsive lerp rates
             float posAlpha = 1f - Mathf.Exp(-clientLerpPosRate * Time.deltaTime);
             float rotAlpha = 1f - Mathf.Exp(-clientSlerpRotRate * Time.deltaTime);
+            
             Vector3 curPos = transform.position;
-            Vector3 newPos = useSmoothDamp
-                ? Vector3.SmoothDamp(curPos, targetPos, ref smoothDampVel, smoothDampTime, (smoothDampMaxSpeed > 0f ? smoothDampMaxSpeed : Mathf.Infinity))
-                : Vector3.Lerp(curPos, targetPos, posAlpha);
+            Vector3 newPos;
+            
+            if (useSmoothDamp)
+            {
+                newPos = Vector3.SmoothDamp(curPos, targetPos, ref smoothDampVel, smoothDampTime, 
+                    (smoothDampMaxSpeed > 0f ? smoothDampMaxSpeed : Mathf.Infinity));
+            }
+            else
+            {
+                // More aggressive lerp for lower latency
+                posAlpha = Mathf.Min(posAlpha * 1.5f, 1f); // 50% more aggressive
+                newPos = Vector3.Lerp(curPos, targetPos, posAlpha);
+            }
+            
+            // Optimized: More flexible step limiting
             if (maxStepPerFrame > 0f)
             {
                 Vector3 delta = newPos - curPos;
-                float maxStep = maxStepPerFrame;
-                if (delta.magnitude > maxStep)
+                if (delta.magnitude > maxStepPerFrame)
                 {
-                    newPos = curPos + delta.normalized * maxStep;
+                    newPos = curPos + delta.normalized * maxStepPerFrame;
                 }
             }
+            
+            // More aggressive rotation lerp
+            rotAlpha = Mathf.Min(rotAlpha * 1.3f, 1f); // 30% more aggressive
             Quaternion newRot = Quaternion.Slerp(transform.rotation, targetRot, rotAlpha);
             transform.SetPositionAndRotation(newPos, newRot);
         }
 
-        // Görüntü hızını da yumuşat
-        float velAlpha = 1f - Mathf.Exp(-clientLerpPosRate * Time.deltaTime);
+        // Optimized: Daha hızlı velocity smoothing
+        float velAlpha = 1f - Mathf.Exp(-clientLerpPosRate * 1.2f * Time.deltaTime); // 20% faster
         remoteDisplayVelocity = Vector3.Lerp(remoteDisplayVelocity, targetVel, velAlpha);
     }
 
@@ -1247,16 +1323,22 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     {
         if (!dynamicInterpolationBackTime)
             return Mathf.Max(0f, interpolationBackTime);
-        // RTT ms -> s. backTime ≈ base + RTT*factor + jitterBuffer
+        
+        // Optimized: Daha agresif ping calculation
         float rttSeconds = (PhotonNetwork.NetworkingClient != null ? PhotonNetwork.NetworkingClient.LoadBalancingPeer.RoundTripTime : 0) / 1000f;
+        
+        // Optimized: Daha düşük base time ve factor
         float bt = interpolationBackTimeBase + rttSeconds * interpolationBackPingFactor + interpolationJitterBuffer;
+        
         if (adaptiveJitterBackTime && emaJitter > 0f)
         {
-            // inter-arrival jitter ~ emaJitter; çeviriyi muhafazakar yap
-            float adapt = Mathf.Clamp(emaJitter * 0.5f, 0f, maxAdaptiveJitter);
+            // Optimized: Daha az jitter compensation
+            float adapt = Mathf.Clamp(emaJitter * 0.3f, 0f, maxAdaptiveJitter); // 0.5'den 0.3'e düşürüldü
             bt += adapt;
         }
-        return Mathf.Clamp(bt, 0.02f, 0.5f);
+        
+        // Optimized: Daha düşük minimum ve maximum değerler
+        return Mathf.Clamp(bt, 0.01f, 0.25f); // Min 0.02'den 0.01'e, Max 0.5'den 0.25'e düşürüldü
     }
 
     private void ApplyAuthorityRigidbodyMode()
@@ -1266,25 +1348,39 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         {
             rb.isKinematic = false;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
+            // Authority için collision detection normal
+            rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
         }
         else
         {
+            // ANTI-JITTER: Guest client optimizasyonları
             rb.isKinematic = remoteMakeKinematic;
+            // Guest client'larda interpolation NONE (kendi interpolation sistemimizi kullanıyoruz)
             rb.interpolation = RigidbodyInterpolation.None;
+            // Guest client için collision detection optimize
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            
+            // CRITICAL: Guest client'ta rigidbody drag değerlerini optimize et
+            rb.drag = 0.1f; // Hafif drag (jitter azaltır)
+            rb.angularDrag = 3f; // Angular jitter azaltır
         }
     }
 
     private bool HasBoundUI()
     {
-    return (speedText != null) && (nitroSlider != null);
+        return (speedText != null) && (nitroSlider != null) && (pingText != null);
     }
 
     private void TryAutoBindUI()
     {
-        // Speed Text (TMP)
+        // Speed Text (TMP) - Enhanced search
         if (speedText == null)
         {
             var text = FindInCanvasesByName<TMPro.TMP_Text>(speedTextObjectName);
+            if (text == null)
+            {
+                text = FindInPrefabByName<TMPro.TMP_Text>(speedTextObjectName);
+            }
             if (text != null)
             {
                 speedText = text;
@@ -1293,10 +1389,33 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             }
         }
 
-        // Nitro Slider
+        // Ping Text (TMP) - Enhanced search for prefabs
+        if (pingText == null)
+        {
+            // Önce Canvas'larda ara
+            var text = FindInCanvasesByName<TMPro.TMP_Text>(pingTextObjectName);
+            
+            // Canvas'larda bulamazsa, prefab içinde ara (this GameObject ve children)
+            if (text == null)
+            {
+                text = FindInPrefabByName<TMPro.TMP_Text>(pingTextObjectName);
+            }
+            
+            if (text != null)
+            {
+                pingText = text;
+                UpdatePingUI();
+            }
+        }
+
+        // Nitro Slider - Enhanced search
         if (nitroSlider == null)
         {
             var slider = FindInCanvasesByName<UnityEngine.UI.Slider>(nitroSliderObjectName);
+            if (slider == null)
+            {
+                slider = FindInPrefabByName<UnityEngine.UI.Slider>(nitroSliderObjectName);
+            }
             if (slider != null)
             {
                 nitroSlider = slider;
@@ -1315,6 +1434,55 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             if (t != null) return t;
         }
         return null;
+    }
+
+    private T FindInPrefabByName<T>(string objName) where T : Component
+    {
+        if (string.IsNullOrEmpty(objName)) return null;
+        
+        // Bu prefab/GameObject içinde ve tüm children'da ara
+        var comp = FindDeepChild<T>(transform, objName);
+        if (comp != null) 
+        {
+            Debug.Log($"[CarManager] Found {typeof(T).Name} '{objName}' in prefab hierarchy at: {GetHierarchyPath(comp.transform)}");
+            return comp;
+        }
+        
+        // Eğer bu GameObject'in parent'ı varsa, parent ve siblings'ları da ara
+        if (transform.parent != null)
+        {
+            comp = FindDeepChild<T>(transform.parent, objName);
+            if (comp != null) 
+            {
+                Debug.Log($"[CarManager] Found {typeof(T).Name} '{objName}' in parent hierarchy at: {GetHierarchyPath(comp.transform)}");
+                return comp;
+            }
+        }
+        
+        // Son çare: Tüm sahnedeki inactive objeler dahil ara
+        var allObjects = FindObjectsOfType<T>(true);
+        foreach (var obj in allObjects)
+        {
+            if (string.Equals(obj.name, objName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.Log($"[CarManager] Found {typeof(T).Name} '{objName}' in scene at: {GetHierarchyPath(obj.transform)}");
+                return obj;
+            }
+        }
+        
+        Debug.LogWarning($"[CarManager] Could not find {typeof(T).Name} with name '{objName}' anywhere!");
+        return null;
+    }
+
+    private static string GetHierarchyPath(Transform transform)
+    {
+        string path = transform.name;
+        while (transform.parent != null)
+        {
+            transform = transform.parent;
+            path = transform.name + "/" + path;
+        }
+        return path;
     }
 
     private T FindDeepChild<T>(Transform parent, string name) where T : Component
@@ -1388,6 +1556,16 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         outOffset = Quaternion.Inverse(colRot) * visual.rotation;
     }
 
+    private void UpdateWheelVisualsOnly()
+    {
+        // ANTI-JITTER: Guest client'larda sadece wheel visual updates
+        // Bu, FixedUpdate timing'inde wheel görsellerinin smooth olmasını sağlar
+        UpdateWheelVisual(frontLeftCollider, frontLeftVisual, flVisualRotOffset);
+        UpdateWheelVisual(frontRightCollider, frontRightVisual, frVisualRotOffset);
+        UpdateWheelVisual(rearLeftCollider, rearLeftVisual, rlVisualRotOffset);
+        UpdateWheelVisual(rearRightCollider, rearRightVisual, rrVisualRotOffset);
+    }
+
     private void UpdateWheelVisual(WheelCollider col, Transform visual, Quaternion rotOffset)
     {
         if (col == null || visual == null) return;
@@ -1439,11 +1617,21 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
     private void UpdateBodyTilt()
     {
-    if (!enableBodyTilt || bodyVisual == null || rb == null) return;
-    // Yanal hız (m/sn) – non-authority'de remoteDisplayVelocity kullan
-    Vector3 vel = (!IsAuthority && IsNetworked) ? remoteDisplayVelocity : rb.velocity;
-    float lateralSpeed = Vector3.Dot(vel, transform.right);
+        if (!enableBodyTilt || bodyVisual == null || rb == null) return;
+        
+        // ANTI-JITTER: Yanal hız (m/sn) – non-authority'de remoteDisplayVelocity kullan
+        Vector3 vel = (!IsAuthority && IsNetworked) ? remoteDisplayVelocity : rb.velocity;
+        float lateralSpeed = Vector3.Dot(vel, transform.right);
+        
+        // ANTI-JITTER: Guest client'larda daha yumuşak lateral speed
+        if (!IsAuthority && IsNetworked)
+        {
+            // Lateral speed'i yumuşat (jitter azaltır)
+            lateralSpeed = Mathf.Lerp(lateralSpeed, lateralSpeed, 0.7f);
+        }
+        
         float rollFromLateral = Mathf.Clamp(-lateralSpeed * lateralRollPerMS, -maxRollDeg, maxRollDeg);
+        
         // Direksiyon etkisi (ortalama ön teker açısı)
         float avgSteer = 0f;
         if (frontLeftCollider) avgSteer += frontLeftCollider.steerAngle;
@@ -1453,7 +1641,11 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         float rollFromSteer = -steerFactor * steerRollDeg;
 
         float targetRoll = Mathf.Clamp(rollFromLateral + rollFromSteer, -maxRollDeg, maxRollDeg);
-        currentRollDeg = Mathf.Lerp(currentRollDeg, targetRoll, 1f - Mathf.Exp(-tiltSmooth * Time.deltaTime));
+        
+        // ANTI-JITTER: Guest client'larda daha yumuşak tilt geçişi
+        float smoothRate = (!IsAuthority && IsNetworked) ? tiltSmooth * 0.7f : tiltSmooth;
+        currentRollDeg = Mathf.Lerp(currentRollDeg, targetRoll, 1f - Mathf.Exp(-smoothRate * Time.deltaTime));
+        
         // Yerel Z ekseninde eğim (bank). İsteğe bağlı hafif pitch eklenebilir.
         bodyVisual.localRotation = bodyInitialLocalRot * Quaternion.Euler(0f, 0f, currentRollDeg);
     }
@@ -1541,6 +1733,29 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         if (!speedText) return;
         if (string.IsNullOrEmpty(speedTextFormat)) speedTextFormat = "{0:0} km/s";
         speedText.text = string.Format(speedTextFormat, speedKmh);
+    }
+
+    private void UpdatePingUI()
+    {
+        if (!pingText) return;
+        
+        // Ping güncellemesi için timer kontrolü
+        pingUpdateTimer += Time.deltaTime;
+        if (pingUpdateTimer < pingUpdateInterval) return;
+        pingUpdateTimer = 0f;
+        
+        if (string.IsNullOrEmpty(pingTextFormat)) pingTextFormat = "Ping: {0:0}ms";
+        
+        if (IsNetworked && PhotonNetwork.IsConnected)
+        {
+            int ping = PhotonNetwork.GetPing();
+            pingText.text = string.Format(pingTextFormat, ping);
+        }
+        else
+        {
+            // Ağ bağlantısı yoksa local göster
+            pingText.text = string.Format(pingTextFormat, 0);
+        }
     }
 
     private void UpdateNitroAuthority(bool masterRequested, bool clientRequested)

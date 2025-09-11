@@ -222,8 +222,6 @@ GameObject:
   - component: {fileID: 6712317042901860435}
   - component: {fileID: 1944859866557853257}
   - component: {fileID: 7372999225641797370}
-  - component: {fileID: 3110503553283503050}
-  - component: {fileID: 1266970887270383697}
   m_Layer: 3
   m_Name: Player
   m_TagString: Player
@@ -272,6 +270,9 @@ MonoBehaviour:
   rearRightVisual: {fileID: 2088956720943582448}
   speedText: {fileID: 0}
   speedTextFormat: '{0:0} km/s'
+  pingText: {fileID: 0}
+  pingTextFormat: 'Ping: {0:0}ms'
+  pingUpdateInterval: 0.5
   nitroSlider: {fileID: 0}
   bodyVisual: {fileID: 7007721339930520751}
   enableBodyTilt: 1
@@ -357,7 +358,7 @@ MonoBehaviour:
   defaultExhaustRight: {fileID: 198124144702787664, guid: 61bb62591466c3649bdf4905822d72f6,
     type: 3}
   manageDefaultExhaust: 1
-  defaultExhaustMode: 1
+  defaultExhaustMode: 0
   defaultExhaustDimAlpha: 0.16
   smoothStopAndClear: 1
   stopClearFadeDuration: 0.12
@@ -404,6 +405,7 @@ MonoBehaviour:
   exhaustRightColor: {r: 1, g: 0, b: 1, a: 0.9}
   autoBindUI: 1
   speedTextObjectName: Speed
+  pingTextObjectName: Ping
   nitroSliderObjectName: Nitro
   uiRebindInterval: 0.5
   uiRebindMaxAttempts: 10
@@ -417,7 +419,7 @@ Rigidbody:
   serializedVersion: 4
   m_Mass: 6000
   m_Drag: 0
-  m_AngularDrag: 0.05
+  m_AngularDrag: 3
   m_CenterOfMass: {x: 0, y: -0.76, z: -2.64}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -431,7 +433,7 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 1
   m_IsKinematic: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_Constraints: 116
   m_CollisionDetection: 0
 --- !u!114 &7372999225641797370
@@ -454,43 +456,9 @@ MonoBehaviour:
   observableSearch: 2
   ObservedComponents:
   - {fileID: 6712317042901860435}
-  - {fileID: 3110503553283503050}
-  - {fileID: 1266970887270383697}
   sceneViewId: 0
   InstantiationId: 0
   isRuntimeInstantiated: 0
---- !u!114 &3110503553283503050
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 708196451783403032}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SynchronizePosition: 1
-  m_SynchronizeRotation: 0
-  m_SynchronizeScale: 0
-  m_UseLocal: 1
---- !u!114 &1266970887270383697
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 708196451783403032}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 64179f3720bbfe947b7724caa67b7c1d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SynchronizeVelocity: 1
-  m_SynchronizeAngularVelocity: 0
-  m_TeleportEnabled: 0
-  m_TeleportIfDistanceGreaterThan: 3
 --- !u!1 &925651980535517607
 GameObject:
   m_ObjectHideFlags: 0

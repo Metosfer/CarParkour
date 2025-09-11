@@ -6,24 +6,24 @@ using Photon.Pun;
 [DefaultExecutionOrder(-500)]
 public class PhotonNetworkConfigurator : MonoBehaviour
 {
-    [Header("Photon Rates")]
-    [Tooltip("PhotonNetwork.SendRate (Hz): Paket gönderme sıklığı. Daha yüksek değerler daha duyarlı hareket sağlar ancak bant genişliği tüketir. Örnek: 120 Hz, 2 kişilik oyun için yüksek duyarlılık.")] 
+    [Header("Photon Rates - Optimized for Low Latency")]
+    [Tooltip("PhotonNetwork.SendRate (Hz): Paket gönderme sıklığı. Lag azaltmak için artırıldı: 200 Hz, çok duyarlı hareket sağlar.")] 
     [Min(5)]
-    [SerializeField] private int sendRate = 120;
-    [Tooltip("PhotonNetwork.SerializationRate (Hz): Durum serileştirme sıklığı. SendRate'e eşit veya daha düşük olmalı. Örnek: 60 Hz, lagı minimize etmek için kullanılır.")] 
+    [SerializeField] private int sendRate = 200;
+    [Tooltip("PhotonNetwork.SerializationRate (Hz): Durum serileştirme sıklığı. SendRate'e eşit olmalı. Lag minimize etmek için: 200 Hz.")] 
     [Min(5)]
-    [SerializeField] private int serializationRate = 60;
+    [SerializeField] private int serializationRate = 200;
 
-    [Header("Smoothing Defaults")] 
-    [Tooltip("Tüm araçlar için varsayılan interpolasyon geri zamanı (s). Daha düşük değerler daha az gecikme sağlar ancak jitter artabilir. Örnek: 0.08 s, dengeli gecikme ve jitter.")]
+    [Header("Smoothing Defaults - Optimized for Low Latency")] 
+    [Tooltip("Tüm araçlar için varsayılan interpolasyon geri zamanı (s). Lag azaltmak için düşürüldü: 0.04 s, çok düşük gecikme sağlar.")]
     [Min(0f)]
-    [SerializeField] private float interpolationBackTimeBase = 0.08f;
-    [Tooltip("RTT çarpan faktörü (0..1): Geri zamanı ping'e göre ayarlar. Örnek: 0.5, yarım ping kadar geri zaman ekler.")] 
+    [SerializeField] private float interpolationBackTimeBase = 0.04f;
+    [Tooltip("RTT çarpan faktörü (0..1): Geri zamanı ping'e göre ayarlar. Düşürüldü: 0.3, daha az geri zaman ekler.")] 
     [Range(0f,1f)]
-    [SerializeField] private float interpolationBackRttFactor = 0.5f;
-    [Tooltip("Jitter tamponu (s). Paket aralıklarındaki değişkenliği tamponlar. Örnek: 0.02 s, küçük jitter için yeterli.")]
+    [SerializeField] private float interpolationBackRttFactor = 0.3f;
+    [Tooltip("Jitter tamponu (s). Lag azaltmak için düşürüldü: 0.01 s, minimum tampon.")]
     [Min(0f)]
-    [SerializeField] private float interpolationJitterBuffer = 0.02f;
+    [SerializeField] private float interpolationJitterBuffer = 0.01f;
 
     [Header("Frame Pacing (Opsiyonel)")]
     [Tooltip("VSync ve hedef FPS'i buradan zorla (mikro takılmaları azaltmaya yardımcı olabilir)")]
@@ -35,13 +35,13 @@ public class PhotonNetworkConfigurator : MonoBehaviour
     [Min(0)]
     [SerializeField] private int targetFrameRate = 120;
 
-    [Header("Physics Timestep (Opsiyonel)")]
-    [Tooltip("Sabit zaman adımını (FixedUpdate) zorla. 0 ise dokunma.")]
+    [Header("Physics Timestep - Optimized")]
+    [Tooltip("Sabit zaman adımını (FixedUpdate) zorla. Lag azaltmak için artırıldı: 0.01 s = 100 Hz fizik.")]
     [Min(0f)]
-    [SerializeField] private float fixedDeltaTime = 0.0167f; // ~60 Hz
-    [Tooltip("Maksimum izin verilen deltaTime (ani droplarda). 0 ise dokunma.")]
+    [SerializeField] private float fixedDeltaTime = 0.01f; // 100 Hz
+    [Tooltip("Maksimum izin verilen deltaTime (ani droplarda). Lag azaltmak için düşürüldü: 0.033 s = ~30 FPS minimum.")]
     [Min(0f)]
-    [SerializeField] private float maximumDeltaTime = 0.0667f; // ~15 FPS
+    [SerializeField] private float maximumDeltaTime = 0.033f; // ~30 FPS
 
     [Header("Apply Mode")]
     [Tooltip("Sahne başladığında otomatik uygula")] 
@@ -57,8 +57,15 @@ public class PhotonNetworkConfigurator : MonoBehaviour
 
     public void Apply()
     {
-        PhotonNetwork.SendRate = Mathf.Clamp(sendRate, 5, 120);
-        PhotonNetwork.SerializationRate = Mathf.Clamp(serializationRate, 5, 120);
+        // Yüksek rate'ler lag azaltmak için
+        PhotonNetwork.SendRate = Mathf.Clamp(sendRate, 5, 500); // Max 500'e çıkarıldı
+        PhotonNetwork.SerializationRate = Mathf.Clamp(serializationRate, 5, 500); // Max 500'e çıkarıldı
+        
+        // Network thread priority artır (mümkünse)
+        if (Application.platform != RuntimePlatform.WebGLPlayer)
+        {
+            System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.AboveNormal;
+        }
         // Burada global ScriptableObject/Singleton ile oyun geneli smoothing paylaşılabilir.
         // Şimdilik değerleri static cache’de tutmuyoruz; CarManager kendi inspector’ından devam ediyor.
 
@@ -75,6 +82,14 @@ public class PhotonNetworkConfigurator : MonoBehaviour
         if (maximumDeltaTime > 0f)
         {
             Time.maximumDeltaTime = maximumDeltaTime;
+        }
+        
+        // Photon region optimization
+        if (PhotonNetwork.IsConnected && PhotonNetwork.NetworkingClient != null)
+        {
+            // Network timeout ayarları - daha agresif
+            PhotonNetwork.NetworkingClient.LoadBalancingPeer.DisconnectTimeout = 20000; // 20 saniye
+            PhotonNetwork.NetworkingClient.LoadBalancingPeer.SentCountAllowance = 7; // Daha fazla paket gönderimini tolere et
         }
     }
 
