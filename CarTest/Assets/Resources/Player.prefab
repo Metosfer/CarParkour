@@ -268,6 +268,8 @@ MonoBehaviour:
   frontRightVisual: {fileID: 8871450755862489814}
   rearLeftVisual: {fileID: 5245191817571988819}
   rearRightVisual: {fileID: 2088956720943582448}
+  remoteAnchorWheelVisuals: 1
+  remoteApplySuspensionYOffset: 0
   speedText: {fileID: 0}
   speedTextFormat: '{0:0} km/s'
   pingText: {fileID: 0}
@@ -313,14 +315,14 @@ MonoBehaviour:
   brakeExtraDecel: 25
   snapBrakePerSecond: 50
   autoReverseOnToeIn: 1
-  reverseTargetSpeedKmh: 10
-  reverseTorqueMultiplier: 1.2
-  reverseEnableSpeedThreshold: 1
+  reverseTargetSpeedKmh: 30
+  reverseTorqueMultiplier: 2
+  reverseEnableSpeedThreshold: 2
   arcadeReverseUseSameMode: 1
   reverseArcadeMode: 2
   reverseExtraAcceleration: 35
   reverseSnapPerSecond: 60
-  reverseFullThrottleUntilPercent: 0.863
+  reverseFullThrottleUntilPercent: 0.99
   useAntiRoll: 1
   antiRollFront: 100
   antiRollRear: 6000
@@ -393,7 +395,7 @@ MonoBehaviour:
   photonConfigurator: {fileID: 0}
   preserveWheelVisualRotation: 1
   syncExactWheelVisuals: 1
-  wheelSyncLerpSpeed: 22.7
+  wheelSyncLerpSpeed: 18
   syncWheelPositions: 1
   drawCenterOfMassGizmo: 1
   comGizmoColor: {r: 1, g: 0.5, b: 0, a: 0.9}

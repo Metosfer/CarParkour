@@ -22,6 +22,17 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private Transform rearLeftVisual;
     [SerializeField] private Transform rearRightVisual;
 
+    // Wheel initial local positions (anchor reference so remote tarafında kaymaz)
+    private Vector3 flInitialLocalPos;
+    private Vector3 frInitialLocalPos;
+    private Vector3 rlInitialLocalPos;
+    private Vector3 rrInitialLocalPos;
+    [Header("Wheel Visual Anchoring")]
+    [Tooltip("Non-authority client'ta teker görselleri prefab'taki başlangıç local konumlarında sabit kalsın (suspension görsel offset uygulanmaz)")] 
+    [SerializeField] private bool remoteAnchorWheelVisuals = true;
+    [Tooltip("Anchor açıkken bile suspension yükselip alçalsın (yalnızca Y ekseni)")] 
+    [SerializeField] private bool remoteApplySuspensionYOffset = false;
+
     [Header("UI")]
     [Tooltip("Hız göstergesi için TMP_Text referansı (TextMeshPro).")]
     [SerializeField] private TMP_Text speedText;
@@ -153,7 +164,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private float reverseTargetSpeedKmh = 20f;
     [Tooltip("Geri giderken motor torku çarpanı.")]
     [Min(1f)]
-    [SerializeField] private float reverseTorqueMultiplier = 1.2f;
+    [SerializeField] private float reverseTorqueMultiplier = 1.6f; // Increased for stronger reverse
     [Tooltip("Toe-in durumunda geri vitesin devreye girmesi için gereken maksimum hız (m/sn). 1 m/sn ≈ 3.6 km/s.")]
     [Min(0f)]
     [SerializeField] private float reverseEnableSpeedThreshold = 1f;
@@ -589,6 +600,12 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             ComputeWheelRotationOffset(rearLeftCollider, rearLeftVisual, ref rlVisualRotOffset);
             ComputeWheelRotationOffset(rearRightCollider, rearRightVisual, ref rrVisualRotOffset);
         }
+
+    // Cache initial local positions for anchoring on remote clients
+    if (frontLeftVisual) flInitialLocalPos = frontLeftVisual.localPosition;
+    if (frontRightVisual) frInitialLocalPos = frontRightVisual.localPosition;
+    if (rearLeftVisual) rlInitialLocalPos = rearLeftVisual.localPosition;
+    if (rearRightVisual) rrInitialLocalPos = rearRightVisual.localPosition;
 
     // VFX otomatik instantiate
     TrySetupNitroVfx();
@@ -1725,34 +1742,50 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         // Non-authority path
         if (!IsAuthority && rb != null)
         {
+            // Determine anchored world position if anchoring enabled
+            Vector3 anchoredWorldPos = visual.position;
+            if (remoteAnchorWheelVisuals)
+            {
+                Vector3 baseLocal = flInitialLocalPos;
+                if (visual == frontRightVisual) baseLocal = frInitialLocalPos;
+                else if (visual == rearLeftVisual) baseLocal = rlInitialLocalPos;
+                else if (visual == rearRightVisual) baseLocal = rrInitialLocalPos;
+
+                // Optional suspension Y offset (difference between current WheelCollider pose and its original)
+                if (remoteApplySuspensionYOffset)
+                {
+                    // Use difference along local Y between collider world pose and collider transform position
+                    col.GetWorldPose(out var wpSusp, out _);
+                    Vector3 localWP = visual.parent ? visual.parent.InverseTransformPoint(wpSusp) : transform.InverseTransformPoint(wpSusp);
+                    float yOffset = localWP.y - baseLocal.y;
+                    baseLocal.y += yOffset; // only Y shift
+                }
+                anchoredWorldPos = visual.parent ? visual.parent.TransformPoint(baseLocal) : transform.TransformPoint(baseLocal);
+            }
+
             if (syncExactWheelVisuals && netWheelDataValid)
             {
-                // Exact host visual reproduction (bandwidth heavier)
-                if (visual == frontLeftVisual)
+                // Use networked rotation only, keep anchored position
+                Quaternion targetRot = netWheelRotFL;
+                if (visual == frontRightVisual) targetRot = netWheelRotFR;
+                else if (visual == rearLeftVisual) targetRot = netWheelRotRL;
+                else if (visual == rearRightVisual) targetRot = netWheelRotRR;
+                visual.rotation = Quaternion.Slerp(visual.rotation, targetRot, wheelSyncLerpSpeed * Time.deltaTime);
+                if (remoteAnchorWheelVisuals) visual.position = anchoredWorldPos;
+                else if (syncWheelPositions)
                 {
-                    if (syncWheelPositions) visual.position = Vector3.Lerp(visual.position, netWheelPosFL, wheelSyncLerpSpeed * Time.deltaTime);
-                    visual.rotation = Quaternion.Slerp(visual.rotation, netWheelRotFL, wheelSyncLerpSpeed * Time.deltaTime);
-                }
-                else if (visual == frontRightVisual)
-                {
-                    if (syncWheelPositions) visual.position = Vector3.Lerp(visual.position, netWheelPosFR, wheelSyncLerpSpeed * Time.deltaTime);
-                    visual.rotation = Quaternion.Slerp(visual.rotation, netWheelRotFR, wheelSyncLerpSpeed * Time.deltaTime);
-                }
-                else if (visual == rearLeftVisual)
-                {
-                    if (syncWheelPositions) visual.position = Vector3.Lerp(visual.position, netWheelPosRL, wheelSyncLerpSpeed * Time.deltaTime);
-                    visual.rotation = Quaternion.Slerp(visual.rotation, netWheelRotRL, wheelSyncLerpSpeed * Time.deltaTime);
-                }
-                else if (visual == rearRightVisual)
-                {
-                    if (syncWheelPositions) visual.position = Vector3.Lerp(visual.position, netWheelPosRR, wheelSyncLerpSpeed * Time.deltaTime);
-                    visual.rotation = Quaternion.Slerp(visual.rotation, netWheelRotRR, wheelSyncLerpSpeed * Time.deltaTime);
+                    // If user disables anchoring, fall back to positional sync
+                    Vector3 targetPos = netWheelPosFL;
+                    if (visual == frontRightVisual) targetPos = netWheelPosFR;
+                    else if (visual == rearLeftVisual) targetPos = netWheelPosRL;
+                    else if (visual == rearRightVisual) targetPos = netWheelPosRR;
+                    visual.position = Vector3.Lerp(visual.position, targetPos, wheelSyncLerpSpeed * Time.deltaTime);
                 }
                 return;
             }
             else
             {
-                // Fallback low-bandwidth: RPM based reconstruction
+                // Fallback RPM-based rotation reconstruction (anchor position)
                 float hostRpm = GetNetworkWheelRpm(col);
                 float angVelDegPerSec = hostRpm * 6.0f;
                 float spin = GetWheelSpin(col);
@@ -1761,7 +1794,15 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
                 SetWheelSpin(col, spin);
                 Quaternion spinQ = Quaternion.AngleAxis(spin, Vector3.right);
                 Quaternion finalRot = baseRot * spinQ;
-                visual.SetPositionAndRotation(pos, finalRot);
+                if (remoteAnchorWheelVisuals)
+                {
+                    visual.rotation = finalRot;
+                    visual.position = anchoredWorldPos;
+                }
+                else
+                {
+                    visual.SetPositionAndRotation(pos, finalRot);
+                }
                 return;
             }
         }
