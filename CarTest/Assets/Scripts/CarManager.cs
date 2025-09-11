@@ -454,6 +454,22 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     
     // Network synced wheel RPM values from host
     private float networkWheelRpmFL, networkWheelRpmFR, networkWheelRpmRL, networkWheelRpmRR;
+    
+    [Header("Wheel Sync (Network)")]
+    [Tooltip("Teker görselleri host ile bire bir aynı olsun (pozisyon+rotasyon gönderilir). Bandwidth artar.")]
+    [SerializeField] private bool syncExactWheelVisuals = true;
+    [Tooltip("Wheel sync verisini yumuşatma hızı (higher = daha hızlı takip)")] [Range(1f,40f)]
+    [SerializeField] private float wheelSyncLerpSpeed = 18f;
+    [Tooltip("Wheel pozisyonları da gönderilsin (suspension görsel farklarını azaltır)")] 
+    [SerializeField] private bool syncWheelPositions = true;
+
+    // Networked wheel pose buffers (guest tarafı kullanır)
+    private Vector3 netWheelPosFL, netWheelPosFR, netWheelPosRL, netWheelPosRR;
+    private Quaternion netWheelRotFL = Quaternion.identity;
+    private Quaternion netWheelRotFR = Quaternion.identity;
+    private Quaternion netWheelRotRL = Quaternion.identity;
+    private Quaternion netWheelRotRR = Quaternion.identity;
+    private bool netWheelDataValid = false;
 
     [Header("Gizmos")]
     [Tooltip("Sahne görünümünde ağırlık merkezi (COM) işaretini çiz.")]
@@ -1116,6 +1132,43 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             stream.SendNext(frontRightCollider ? frontRightCollider.rpm : 0f);
             stream.SendNext(rearLeftCollider ? rearLeftCollider.rpm : 0f);
             stream.SendNext(rearRightCollider ? rearRightCollider.rpm : 0f);
+
+            // EXACT WHEEL VISUAL SYNC (opsiyonel)
+            if (syncExactWheelVisuals)
+            {
+                // Host wheel world poses
+                if (frontLeftCollider && frontLeftVisual)
+                {
+                    frontLeftCollider.GetWorldPose(out var wp, out var wr);
+                    if (syncWheelPositions) stream.SendNext(wp);
+                    stream.SendNext(frontLeftVisual.rotation);
+                }
+                else { if (syncWheelPositions) stream.SendNext(Vector3.zero); stream.SendNext(Quaternion.identity); }
+
+                if (frontRightCollider && frontRightVisual)
+                {
+                    frontRightCollider.GetWorldPose(out var wp, out var wr);
+                    if (syncWheelPositions) stream.SendNext(wp);
+                    stream.SendNext(frontRightVisual.rotation);
+                }
+                else { if (syncWheelPositions) stream.SendNext(Vector3.zero); stream.SendNext(Quaternion.identity); }
+
+                if (rearLeftCollider && rearLeftVisual)
+                {
+                    rearLeftCollider.GetWorldPose(out var wp, out var wr);
+                    if (syncWheelPositions) stream.SendNext(wp);
+                    stream.SendNext(rearLeftVisual.rotation);
+                }
+                else { if (syncWheelPositions) stream.SendNext(Vector3.zero); stream.SendNext(Quaternion.identity); }
+
+                if (rearRightCollider && rearRightVisual)
+                {
+                    rearRightCollider.GetWorldPose(out var wp, out var wr);
+                    if (syncWheelPositions) stream.SendNext(wp);
+                    stream.SendNext(rearRightVisual.rotation);
+                }
+                else { if (syncWheelPositions) stream.SendNext(Vector3.zero); stream.SendNext(Quaternion.identity); }
+            }
             
             // Nitro değerleri compression ile gönder (0-255 range)
             stream.SendNext((byte)(nitroAmountMaster * 255f));
@@ -1147,6 +1200,30 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             networkWheelRpmFR = hostWheelRpmFR;
             networkWheelRpmRL = hostWheelRpmRL;
             networkWheelRpmRR = hostWheelRpmRR;
+
+            // EXACT WHEEL VISUAL SYNC (opsiyonel)
+            if (syncExactWheelVisuals)
+            {
+                if (syncWheelPositions)
+                {
+                    netWheelPosFL = (Vector3)stream.ReceiveNext();
+                    netWheelRotFL = (Quaternion)stream.ReceiveNext();
+                    netWheelPosFR = (Vector3)stream.ReceiveNext();
+                    netWheelRotFR = (Quaternion)stream.ReceiveNext();
+                    netWheelPosRL = (Vector3)stream.ReceiveNext();
+                    netWheelRotRL = (Quaternion)stream.ReceiveNext();
+                    netWheelPosRR = (Vector3)stream.ReceiveNext();
+                    netWheelRotRR = (Quaternion)stream.ReceiveNext();
+                }
+                else
+                {
+                    netWheelRotFL = (Quaternion)stream.ReceiveNext();
+                    netWheelRotFR = (Quaternion)stream.ReceiveNext();
+                    netWheelRotRL = (Quaternion)stream.ReceiveNext();
+                    netWheelRotRR = (Quaternion)stream.ReceiveNext();
+                }
+                netWheelDataValid = true;
+            }
             
             // Nitro decompression
             nitroAmountMaster = ((byte)stream.ReceiveNext()) / 255f;
@@ -1645,27 +1722,48 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         // Taban rotasyon (steer/suspension) + opsiyonel offset
         Quaternion baseRot = preserveWheelVisualRotation ? (rot * rotOffset) : rot;
 
-        // Otorite değilsek, fizik RPM güncellenmediği için görsel spin'i hızdan türet
+        // Non-authority path
         if (!IsAuthority && rb != null)
         {
-            // HOST'TAN GELEN GERÇEK RPM DEĞERLERİNİ KULLAN
-            float hostRpm = GetNetworkWheelRpm(col);
-            
-            // RPM'den angular velocity hesapla (tam olarak host'takiyle aynı)
-            float angVelDegPerSec = hostRpm * 6.0f; // RPM to deg/s: RPM * 360 / 60 = RPM * 6
-            float spin = GetWheelSpin(col);
-            spin += angVelDegPerSec * Time.fixedDeltaTime;
-            // overflow’u sınırlı tut
-            spin = Mathf.Repeat(spin, 360f);
-            SetWheelSpin(col, spin);
-
-            Debug.Log($"[Synced Wheel] {col.name}: HostRPM={hostRpm:F1}, AngVel={angVelDegPerSec:F1}°/s, Spin={spin:F1}°");
-
-            // Yerel X ekseni etrafında dön
-            Quaternion spinQ = Quaternion.AngleAxis(spin, Vector3.right);
-            Quaternion finalRot = baseRot * spinQ; // local-space spin
-            visual.SetPositionAndRotation(pos, finalRot);
-            return;
+            if (syncExactWheelVisuals && netWheelDataValid)
+            {
+                // Exact host visual reproduction (bandwidth heavier)
+                if (visual == frontLeftVisual)
+                {
+                    if (syncWheelPositions) visual.position = Vector3.Lerp(visual.position, netWheelPosFL, wheelSyncLerpSpeed * Time.deltaTime);
+                    visual.rotation = Quaternion.Slerp(visual.rotation, netWheelRotFL, wheelSyncLerpSpeed * Time.deltaTime);
+                }
+                else if (visual == frontRightVisual)
+                {
+                    if (syncWheelPositions) visual.position = Vector3.Lerp(visual.position, netWheelPosFR, wheelSyncLerpSpeed * Time.deltaTime);
+                    visual.rotation = Quaternion.Slerp(visual.rotation, netWheelRotFR, wheelSyncLerpSpeed * Time.deltaTime);
+                }
+                else if (visual == rearLeftVisual)
+                {
+                    if (syncWheelPositions) visual.position = Vector3.Lerp(visual.position, netWheelPosRL, wheelSyncLerpSpeed * Time.deltaTime);
+                    visual.rotation = Quaternion.Slerp(visual.rotation, netWheelRotRL, wheelSyncLerpSpeed * Time.deltaTime);
+                }
+                else if (visual == rearRightVisual)
+                {
+                    if (syncWheelPositions) visual.position = Vector3.Lerp(visual.position, netWheelPosRR, wheelSyncLerpSpeed * Time.deltaTime);
+                    visual.rotation = Quaternion.Slerp(visual.rotation, netWheelRotRR, wheelSyncLerpSpeed * Time.deltaTime);
+                }
+                return;
+            }
+            else
+            {
+                // Fallback low-bandwidth: RPM based reconstruction
+                float hostRpm = GetNetworkWheelRpm(col);
+                float angVelDegPerSec = hostRpm * 6.0f;
+                float spin = GetWheelSpin(col);
+                spin += angVelDegPerSec * Time.fixedDeltaTime;
+                spin = Mathf.Repeat(spin, 360f);
+                SetWheelSpin(col, spin);
+                Quaternion spinQ = Quaternion.AngleAxis(spin, Vector3.right);
+                Quaternion finalRot = baseRot * spinQ;
+                visual.SetPositionAndRotation(pos, finalRot);
+                return;
+            }
         }
 
         // Otorite: normal

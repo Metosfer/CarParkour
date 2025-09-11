@@ -392,6 +392,9 @@ MonoBehaviour:
   useGlobalPhotonConfigurator: 1
   photonConfigurator: {fileID: 0}
   preserveWheelVisualRotation: 1
+  syncExactWheelVisuals: 1
+  wheelSyncLerpSpeed: 22.7
+  syncWheelPositions: 1
   drawCenterOfMassGizmo: 1
   comGizmoColor: {r: 1, g: 0.5, b: 0, a: 0.9}
   comGizmoRadius: 0.19
