@@ -430,6 +430,12 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private float recvSteerFRTarget;
     // Client görüntü tarafı için tahmini hız (UI/tilt)
     private Vector3 remoteDisplayVelocity;
+    
+    // ANTI-JITTER: Smooth transform cache
+    private Vector3 lastTargetPos;
+    private Quaternion lastTargetRot;
+    private float positionSmoothness = 0f;
+    private float rotationSmoothness = 0f;
 
     [Tooltip("Sahnede varsa PhotonNetworkConfigurator değerlerini kullan")]
     [SerializeField] private bool useGlobalPhotonConfigurator = true;
@@ -445,6 +451,9 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     private Quaternion rrVisualRotOffset = Quaternion.identity;
     // Non-authority teker görsel dönmesi için kümülatif spin (deg)
     private float flSpinDeg, frSpinDeg, rlSpinDeg, rrSpinDeg;
+    
+    // Network synced wheel RPM values from host
+    private float networkWheelRpmFL, networkWheelRpmFR, networkWheelRpmRL, networkWheelRpmRR;
 
     [Header("Gizmos")]
     [Tooltip("Sahne görünümünde ağırlık merkezi (COM) işaretini çiz.")]
@@ -478,7 +487,7 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
     [Header("UI Auto-Bind")]
     [SerializeField] private bool autoBindUI = true;
-    [SerializeField] private string speedTextObjectName = "Speed";
+    [SerializeField] private string speedTextObjectName = "SpeedText";
     [SerializeField] private string pingTextObjectName = "PingTestText";
     [SerializeField] private string nitroSliderObjectName = "Nitro";
     [Tooltip("UI daha geç yüklenecekse, kısa süre tekrar denemesi için.")]
@@ -523,6 +532,10 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             // Authority/Remote modunu uygula
             ApplyAuthorityRigidbodyMode();
         }
+        
+        // ANTI-JITTER: Cache'i initialize et
+        lastTargetPos = transform.position;
+        lastTargetRot = transform.rotation;
         if (bodyVisual)
         {
             bodyInitialLocalRot = bodyVisual.localRotation;
@@ -712,10 +725,25 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
     UpdateNitroVfx();
     UpdateDefaultExhaustVfx();
 
-        // UI hız güncelle
-        UpdateSpeedUI(speedKmhNow);
-        UpdatePingUI();
-        UpdateNitroUI();    // Görsel gövde eğimi
+    // FIXED: UI hız güncelle - Guest client için velocity source düzelt
+    float uiSpeedKmh;
+    if (!IsAuthority && IsNetworked)
+    {
+        // Guest client: remoteDisplayVelocity kullan, fallback olarak rb.velocity
+        Vector3 velForUI = remoteDisplayVelocity;
+        if (velForUI.sqrMagnitude < 0.01f && rb != null)
+            velForUI = rb.velocity;
+        uiSpeedKmh = velForUI.magnitude * 3.6f;
+    }
+    else
+    {
+        // Host/Authority: normal velocity
+        uiSpeedKmh = speedKmhNow;
+    }
+    
+    UpdateSpeedUI(uiSpeedKmh);
+    UpdatePingUI();
+    UpdateNitroUI();    // Görsel gövde eğimi
     UpdateBodyTilt();
 
     // Non-authority poz/rot interpolasyon (snap yerine)
@@ -1083,6 +1111,12 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             stream.SendNext(steerAngleFL);
             stream.SendNext(steerAngleFR);
             
+            // WHEEL ROTATION SYNC: Host'tan guest'e gerçek wheel RPM gönder
+            stream.SendNext(frontLeftCollider ? frontLeftCollider.rpm : 0f);
+            stream.SendNext(frontRightCollider ? frontRightCollider.rpm : 0f);
+            stream.SendNext(rearLeftCollider ? rearLeftCollider.rpm : 0f);
+            stream.SendNext(rearRightCollider ? rearRightCollider.rpm : 0f);
+            
             // Nitro değerleri compression ile gönder (0-255 range)
             stream.SendNext((byte)(nitroAmountMaster * 255f));
             stream.SendNext((byte)(nitroAmountClient * 255f));
@@ -1101,6 +1135,18 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             var angVel = (Vector3)stream.ReceiveNext();
             recvSteerFLTarget = (float)stream.ReceiveNext();
             recvSteerFRTarget = (float)stream.ReceiveNext();
+            
+            // WHEEL ROTATION SYNC: Host'tan gelen gerçek wheel RPM'leri al
+            float hostWheelRpmFL = (float)stream.ReceiveNext();
+            float hostWheelRpmFR = (float)stream.ReceiveNext();
+            float hostWheelRpmRL = (float)stream.ReceiveNext();
+            float hostWheelRpmRR = (float)stream.ReceiveNext();
+            
+            // Store network wheel RPM values
+            networkWheelRpmFL = hostWheelRpmFL;
+            networkWheelRpmFR = hostWheelRpmFR;
+            networkWheelRpmRL = hostWheelRpmRL;
+            networkWheelRpmRR = hostWheelRpmRR;
             
             // Nitro decompression
             nitroAmountMaster = ((byte)stream.ReceiveNext()) / 255f;
@@ -1265,6 +1311,26 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
             targetRot = last.rot;
             targetVel = last.vel;
         }
+
+        // ANTI-JITTER: Hedef pozisyon/rotasyon değişikliklerini yumuşat
+        float targetPosDelta = Vector3.Distance(lastTargetPos, targetPos);
+        float targetRotDelta = Quaternion.Angle(lastTargetRot, targetRot);
+        
+        // Smooth target değerleri (ani değişiklikleri yumuşat)
+        float targetSmoothRate = 25f; // Yüksek değer = daha hızlı smooth
+        float targetAlpha = 1f - Mathf.Exp(-targetSmoothRate * Time.deltaTime);
+        
+        if (targetPosDelta > 0.01f) // Küçük değişiklikler için smooth uygula
+        {
+            targetPos = Vector3.Lerp(lastTargetPos, targetPos, targetAlpha);
+        }
+        if (targetRotDelta > 0.5f) // Küçük rotasyon değişiklikleri için smooth uygula
+        {
+            targetRot = Quaternion.Slerp(lastTargetRot, targetRot, targetAlpha);
+        }
+        
+        lastTargetPos = targetPos;
+        lastTargetRot = targetRot;
 
         // Optimized: Daha düşük snap thresholds
         float dist = Vector3.Distance(transform.position, targetPos);
@@ -1568,7 +1634,12 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
 
     private void UpdateWheelVisual(WheelCollider col, Transform visual, Quaternion rotOffset)
     {
-        if (col == null || visual == null) return;
+        if (col == null || visual == null) 
+        {
+            if (col == null) Debug.LogWarning($"[CarManager] WheelCollider is null!");
+            if (visual == null) Debug.LogWarning($"[CarManager] Wheel visual Transform is null!");
+            return;
+        }
         col.GetWorldPose(out var pos, out var rot);
 
         // Taban rotasyon (steer/suspension) + opsiyonel offset
@@ -1577,15 +1648,18 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         // Otorite değilsek, fizik RPM güncellenmediği için görsel spin'i hızdan türet
         if (!IsAuthority && rb != null)
         {
-            float radius = Mathf.Max(0.001f, col.radius);
-            // Teker yönünde doğrusal hız (m/sn) – steer edilene göre güncel yön
-            float v = Vector3.Dot(remoteDisplayVelocity, col.transform.forward);
-            float angVelDegPerSec = (v / radius) * Mathf.Rad2Deg; // deg/s
+            // HOST'TAN GELEN GERÇEK RPM DEĞERLERİNİ KULLAN
+            float hostRpm = GetNetworkWheelRpm(col);
+            
+            // RPM'den angular velocity hesapla (tam olarak host'takiyle aynı)
+            float angVelDegPerSec = hostRpm * 6.0f; // RPM to deg/s: RPM * 360 / 60 = RPM * 6
             float spin = GetWheelSpin(col);
-            spin += angVelDegPerSec * Time.deltaTime;
+            spin += angVelDegPerSec * Time.fixedDeltaTime;
             // overflow’u sınırlı tut
             spin = Mathf.Repeat(spin, 360f);
             SetWheelSpin(col, spin);
+
+            Debug.Log($"[Synced Wheel] {col.name}: HostRPM={hostRpm:F1}, AngVel={angVelDegPerSec:F1}°/s, Spin={spin:F1}°");
 
             // Yerel X ekseni etrafında dön
             Quaternion spinQ = Quaternion.AngleAxis(spin, Vector3.right);
@@ -1613,6 +1687,15 @@ public class CarManager : MonoBehaviourPunCallbacks, IPunObservable
         else if (col == frontRightCollider) frSpinDeg = val;
         else if (col == rearLeftCollider) rlSpinDeg = val;
         else if (col == rearRightCollider) rrSpinDeg = val;
+    }
+
+    private float GetNetworkWheelRpm(WheelCollider col)
+    {
+        if (col == frontLeftCollider) return networkWheelRpmFL;
+        if (col == frontRightCollider) return networkWheelRpmFR;
+        if (col == rearLeftCollider) return networkWheelRpmRL;
+        if (col == rearRightCollider) return networkWheelRpmRR;
+        return 0f;
     }
 
     private void UpdateBodyTilt()
