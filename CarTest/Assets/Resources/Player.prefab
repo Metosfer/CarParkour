@@ -220,6 +220,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1180345617931321825}
   - component: {fileID: 6712317042901860435}
+  - component: {fileID: 3531456388256343184}
+  - component: {fileID: 2497566805242946691}
   - component: {fileID: 1944859866557853257}
   - component: {fileID: 7372999225641797370}
   m_Layer: 3
@@ -278,20 +280,20 @@ MonoBehaviour:
   nitroSlider: {fileID: 0}
   bodyVisual: {fileID: 7007721339930520751}
   enableBodyTilt: 1
-  maxRollDeg: 2.1
-  lateralRollPerMS: 1.09
-  steerRollDeg: 2
-  tiltSmooth: 4
+  maxRollDeg: 14.42
+  lateralRollPerMS: 3
+  steerRollDeg: 4
+  tiltSmooth: 6
   autoBindBodyVisual: 1
   bodyVisualSearchNames: Body
   massKg: 6000
   overrideCenterOfMass: 1
-  centerOfMassOffset: {x: 0, y: -0.76, z: -2.64}
+  centerOfMassOffset: {x: 0, y: -1.16, z: -2.81}
   targetSpeedKmh: 60
   maxSteerAngle: 45
   steerSlewRate: 600
-  maxMotorTorque: 6000
-  maxBrakeTorque: 3636
+  maxMotorTorque: 3000
+  maxBrakeTorque: 1500
   cruiseKp: 150.2
   speedDeadzone: 0.3
   driveRearWheels: 1
@@ -300,51 +302,51 @@ MonoBehaviour:
   nitroKey: 304
   arcadeAcceleration: 1
   arcadeAccelMode: 1
-  fullThrottleUntilPercent: 0.99
+  fullThrottleUntilPercent: 0.6
   arcadeTorqueMultiplier: 1.5
   arcadeExtraAcceleration: 35
   snapAccelPerSecond: 60
   nitroEnabled: 1
-  nitroExtraKmh: 30
-  nitroStartAmount: 1
+  nitroExtraKmh: 20
+  nitroStartAmount: 0.75
   nitroDrainPerSecond: 0.25
   nitroRegenPerSecond: 0.05
   nitroTargetLerpSpeed: 20
   arcadeBraking: 1
   arcadeBrakeMultiplier: 1
-  brakeExtraDecel: 25
-  snapBrakePerSecond: 50
+  brakeExtraDecel: 15
+  snapBrakePerSecond: 25
   autoReverseOnToeIn: 1
-  reverseTargetSpeedKmh: 30
-  reverseTorqueMultiplier: 2
+  reverseTargetSpeedKmh: 40
+  reverseTorqueMultiplier: 10
   reverseEnableSpeedThreshold: 2
   arcadeReverseUseSameMode: 1
-  reverseArcadeMode: 2
+  reverseArcadeMode: 1
   reverseExtraAcceleration: 35
   reverseSnapPerSecond: 60
   reverseFullThrottleUntilPercent: 0.99
   useAntiRoll: 1
-  antiRollFront: 100
-  antiRollRear: 6000
+  antiRollFront: 10000
+  antiRollRear: 10000
   useDownforce: 1
-  downforcePerKmh: 15
+  downforcePerKmh: 50
   useSpeedSensitiveSteer: 1
-  steerReduceStartKmh: 30
-  steerReduceEndKmh: 100
-  minSteerFactor: 0.35
+  steerReduceStartKmh: 20
+  steerReduceEndKmh: 55
+  minSteerFactor: 0.647
   useRollDamping: 1
-  rollDamping: 4
+  rollDamping: 12
   arcadeSteering: 1
-  arcadeSteerSnapSpeed: 3000
-  arcadeSteerBoost: 1.6
+  arcadeSteerSnapSpeed: 1000
+  arcadeSteerBoost: 1.1
   yawAssist: 1
-  yawAssistStrength: 75
-  yawAssistMaxAtKmh: 20
+  yawAssistStrength: 40
+  yawAssistMaxAtKmh: 10
   enhancedArcadeHandling: 1
-  lateralVelDampingPerSec: 8
+  lateralVelDampingPerSec: 14
   boostWheelFriction: 1
-  forwardFrictionStiffness: 1.2
-  sidewaysFrictionStiffness: 3.5
+  forwardFrictionStiffness: 2
+  sidewaysFrictionStiffness: 6
   yawAssistArcadeMultiplier: 1.4
   nitroExhaustLeft: {fileID: 7868560402894926675}
   nitroExhaustRight: {fileID: 5429169071907373390}
@@ -414,6 +416,97 @@ MonoBehaviour:
   nitroSliderObjectName: Nitro
   uiRebindInterval: 0.5
   uiRebindMaxAttempts: 10
+--- !u!114 &3531456388256343184
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 708196451783403032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c58df08d78e724a40b8354b229c0640b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bodyVisual: {fileID: 7007721339930520751}
+  rb: {fileID: 1944859866557853257}
+  frontLeft: {fileID: 8443308939640895086}
+  frontRight: {fileID: 3744736417025523809}
+  enableBodyTilt: 1
+  maxRollDeg: 30
+  lateralRollPerMS: 2
+  steerRollDeg: 5
+  tiltGlobalMultiplier: 1.3
+  tiltLateralMultiplier: 1.2
+  tiltSteerMultiplier: 1.2
+  tiltAmountBySpeed:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.8
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 50
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 120
+      value: 1.2
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  minSpeedForTiltKmh: 1
+  tiltUseSpring: 1
+  tiltSpringStrength: 20
+  tiltSpringDamping: 10
+  tiltSmooth: 10
+  useWheelSteerAngleIfAvailable: 1
+  useYawRateAsSteerFallback: 1
+  yawRateToSteer: 0.18
+  maxSteerAngle: 40.3
+  tiltAddYawFromRoll: 1
+  tiltYawPerRollDeg: 0.12
+  tiltMaxYawFromRollDeg: 3
+--- !u!114 &2497566805242946691
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 708196451783403032}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48be67e2b709e48b79bddf627cbb8325, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  source: 0
+  carManager: {fileID: 1180345617931321825}
+  carManagerTypeName: CarManager
+  globalVolume: {fileID: 0}
+  autoAddMotionBlurOverride: 1
+  forceEnableCameraPostProcessing: 1
+  blurOnIntensity: 1.5
+  blurInSpeed: 5
+  blurOutSpeed: 5
+  logWarnings: 1
+  debugLogState: 0
 --- !u!54 &1944859866557853257
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -425,7 +518,7 @@ Rigidbody:
   m_Mass: 6000
   m_Drag: 0
   m_AngularDrag: 3
-  m_CenterOfMass: {x: 0, y: -0.76, z: -2.64}
+  m_CenterOfMass: {x: 0, y: -1.16, z: -2.81}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
   m_IncludeLayers:
@@ -439,7 +532,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 1
-  m_Constraints: 116
+  m_Constraints: 0
   m_CollisionDetection: 0
 --- !u!114 &7372999225641797370
 MonoBehaviour:
@@ -493,7 +586,7 @@ Transform:
   m_GameObject: {fileID: 925651980535517607}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071067}
-  m_LocalPosition: {x: -0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.05, y: 0.05, z: -0}
   m_LocalScale: {x: 100, y: 100, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -975,7 +1068,7 @@ Transform:
   m_GameObject: {fileID: 2171504548687954743}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7069856, y: 0.013077555, z: 0.008092132, w: 0.7070607}
-  m_LocalPosition: {x: -1.62, y: 0.645, z: 1.05}
+  m_LocalPosition: {x: -1.58, y: 0.64, z: 1.05}
   m_LocalScale: {x: 99.99997, y: 99.999985, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1095,7 +1188,7 @@ Transform:
   m_GameObject: {fileID: 2472133964083543670}
   serializedVersion: 2
   m_LocalRotation: {x: -0.70710254, y: 0.0024929938, z: -0.0024930069, w: 0.70710236}
-  m_LocalPosition: {x: -1.5899999, y: 0.6953104, z: -1.2822195}
+  m_LocalPosition: {x: -1.67, y: 0.71, z: -1.115}
   m_LocalScale: {x: -1.2656143, y: -0.25576004, z: -1.2656142}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1160,7 +1253,7 @@ WheelCollider:
   m_GameObject: {fileID: 2472133964083543670}
   serializedVersion: 2
   m_Center: {x: 0, y: 0.01, z: 0}
-  m_Radius: 2
+  m_Radius: 2.2
   m_SuspensionSpring:
     spring: 35000
     damper: 4500
@@ -1218,7 +1311,7 @@ Transform:
   m_GameObject: {fileID: 2759258479187368590}
   serializedVersion: 2
   m_LocalRotation: {x: -0.70710254, y: 0.0024929938, z: -0.0024930069, w: 0.70710236}
-  m_LocalPosition: {x: -1.59, y: 0.6943358, z: 1.37}
+  m_LocalPosition: {x: -1.58, y: 0.7, z: 1.09}
   m_LocalScale: {x: -1.2656143, y: -0.25576004, z: -1.2656142}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1283,7 +1376,7 @@ WheelCollider:
   m_GameObject: {fileID: 2759258479187368590}
   serializedVersion: 2
   m_Center: {x: 0, y: 0.01, z: 0}
-  m_Radius: 2
+  m_Radius: 2.2
   m_SuspensionSpring:
     spring: 35000
     damper: 4500
@@ -2121,7 +2214,7 @@ Transform:
   m_GameObject: {fileID: 5640089292889880470}
   serializedVersion: 2
   m_LocalRotation: {x: -0.70710254, y: 0.0024929938, z: -0.0024930069, w: 0.70710236}
-  m_LocalPosition: {x: 1.8730001, y: 0.68, z: -1.3600008}
+  m_LocalPosition: {x: 1.87, y: 0.67, z: -1.16}
   m_LocalScale: {x: -1.2656143, y: -0.25576004, z: -1.2656142}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2186,7 +2279,7 @@ WheelCollider:
   m_GameObject: {fileID: 5640089292889880470}
   serializedVersion: 2
   m_Center: {x: 0, y: 0.01, z: 0}
-  m_Radius: 2
+  m_Radius: 2.2
   m_SuspensionSpring:
     spring: 35000
     damper: 4500
@@ -2736,7 +2829,7 @@ Transform:
   m_GameObject: {fileID: 6535958593118062833}
   serializedVersion: 2
   m_LocalRotation: {x: -0.70710254, y: 0.0024929938, z: -0.0024930069, w: 0.70710236}
-  m_LocalPosition: {x: 1.8629999, y: 0.67, z: 1.2580004}
+  m_LocalPosition: {x: 1.94, y: 0.66, z: 1.19}
   m_LocalScale: {x: -1.2656143, y: -0.25576004, z: -1.2656142}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2801,7 +2894,7 @@ WheelCollider:
   m_GameObject: {fileID: 6535958593118062833}
   serializedVersion: 2
   m_Center: {x: 0, y: 0.01, z: 0}
-  m_Radius: 2
+  m_Radius: 2.2
   m_SuspensionSpring:
     spring: 35000
     damper: 4500
